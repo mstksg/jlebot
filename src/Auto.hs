@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Auto where
 
 -- much borrowed from http://lpaste.net/raw/101205
@@ -72,3 +74,15 @@ encodeAuto = runPut . saveAuto
 
 decodeAuto :: Auto m a b -> ByteString -> Auto m a b
 decodeAuto w = runGet (loadAuto w)
+
+integral :: (Monad m, Num a, Binary a) => a -> Auto m a a
+integral x' = Auto (fmap integral get) (put x') $ \dx ->
+                let !x = x' + dx
+                in  return (x, integral x)
+
+
+-- integral :: (Fractional a, Monad m, Serialize a) => a -> Wire m a a
+-- -- integral x' =
+--     Wire (fmap integral get) (put x') $ \dt dx ->
+--         let !x = x' + realToFrac dt*dx in
+--         return (x, integral x)
