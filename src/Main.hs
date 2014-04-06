@@ -3,26 +3,26 @@
 module Main where
 
 import Auto
-import Prelude hiding (mapM_, sequence, foldr, concat)
-import Control.Monad hiding (mapM_)
-import Network
-import Data.List hiding (foldr, concat)
-import Data.Traversable
-import System.IO
 import Control.Applicative
-import Control.Exception
-import qualified Data.ByteString.Lazy as B
 import Control.Arrow
+import Control.Exception
+import Network
+import Control.Monad hiding           (mapM_)
 import Control.Monad.IO.Class
 import Data.Foldable
+import Data.List hiding               (foldr, concat)
+import Data.Traversable
+import Prelude hiding                 (mapM_, sequence, foldr, concat)
+import System.IO
+import qualified Data.ByteString.Lazy as B
 
 type Interact m = Auto m String [String]
 
 main :: IO ()
 main = stdinLoop
 
-networkLoop :: IO ()
-networkLoop = do
+ircLoop :: IO ()
+ircLoop = do
     h <- connectTo "irc.freenode.org" (PortNumber 6667)
     hSetBuffering h NoBuffering
     write h "NICK" "jlebot"
@@ -32,7 +32,7 @@ networkLoop = do
 
 write :: Handle -> String -> String -> IO ()
 write h s t = do
-    hPutStrLn h $ "> " ++ s ++ " " ++ t ++ "\r"
+    hPutStrLn h $ s ++ " " ++ t ++ "\r"
     putStrLn    $ "> " ++ s ++ " " ++ t
 
 listen :: Handle -> IO ()
@@ -43,14 +43,12 @@ listen h = forever $ do
 
 stdinLoop :: IO ()
 stdinLoop = do
-    h <- openFile "data/state" ReadMode
-    hSetBuffering h NoBuffering
-    loaded <- try (B.hGetContents h) :: IO (Either SomeException B.ByteString)
-    let a = case loaded of
-              Right bs -> decodeAuto myAuto bs
-              Left _   -> myAuto
+    h <- try (openFile "data/state" ReadMode) :: IO (Either SomeException Handle)
+    a <- case h of
+           Right h' -> decodeAuto myAuto <$> B.hGetContents h'
+           Left _   -> return myAuto
     a' <- loopAuto a
-    hClose h
+    mapM_ hClose h
     B.writeFile "data/state" (encodeAuto a')
 
 
