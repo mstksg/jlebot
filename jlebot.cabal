@@ -22,8 +22,11 @@ executable jlebot
   build-depends:       base >=4.7 && <4.8
                      , binary
                      , bytestring
+                     , simpleirc
                      , transformers
+                     , containers
+                     , parsec
                      , network
-                     -- , fastirc
+                     , time
   hs-source-dirs:      src
   default-language:    Haskell2010

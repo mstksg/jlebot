@@ -1,19 +1,23 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Auto where
 
 -- much borrowed from http://lpaste.net/raw/101205
 
-import Data.Binary
-import Control.Category
-import Data.Binary.Put
-import Data.Binary.Get
-import Data.ByteString.Lazy
-import Control.Monad.Fix
-import Control.Monad
 import Control.Applicative
-import Prelude hiding ((.), id)
 import Control.Arrow
+import Control.Category
+import Control.Exception
+import Control.Monad hiding (mapM_)
+import Control.Monad.Fix
+import Data.Binary
+import Data.Binary.Get
+import Data.Binary.Put
+import Data.ByteString.Lazy as B
+import Data.Foldable
+import Prelude hiding       ((.), id, mapM_)
+import System.IO
 
 data Auto m a b = Auto { loadAuto :: Get (Auto m a b)
                        , saveAuto :: Put
@@ -75,11 +79,29 @@ encodeAuto = runPut . saveAuto
 decodeAuto :: Auto m a b -> ByteString -> Auto m a b
 decodeAuto w = runGet (loadAuto w)
 
+loadAutoFile :: forall m a b. FilePath -> Auto m a b -> IO (Auto m a b)
+loadAutoFile fp a0 = do
+    h <- try (openFile fp ReadMode) :: IO (Either SomeException Handle)
+    a <- case h of
+           Right h' -> decodeAuto a0 <$> B.hGetContents h'
+           Left _   -> return a0
+    try (evaluate a) :: IO (Either SomeException (Auto m a b))
+    mapM_ hClose h
+    return a
+
+writeAutoFile :: FilePath -> Auto m a b -> IO ()
+writeAutoFile fp a = B.writeFile fp (encodeAuto a)
+
 integral :: (Monad m, Num a, Binary a) => a -> Auto m a a
 integral x' = Auto (fmap integral get) (put x') $ \dx ->
                 let !x = x' + dx
                 in  return (x, integral x)
+            -- also possibly scanA (+)
 
+scanA :: (Monad m, Binary b) => (b -> a -> b) -> b -> Auto m a b
+scanA f x' = Auto (fmap (scanA f) get) (put x') $ \dx ->
+               let y = f x' dx
+               in  return (y, scanA f y)
 
 -- integral :: (Fractional a, Monad m, Serialize a) => a -> Wire m a a
 -- -- integral x' =
