@@ -17,8 +17,8 @@ import Prelude hiding         (mapM_, sequence, foldr, concat)
 import Types
 
 main :: IO ()
--- main = ircLoop "data/state" myAuto
-main = stdinLoop "data/state" myAuto
+main = ircLoop "data/state" myAuto
+-- main = stdinLoop "data/state" myAuto
 
 autoModules :: Monad m => [Interact m] -> Interact m
 autoModules = fmap (foldr (<|>) mzero) . sequenceA
