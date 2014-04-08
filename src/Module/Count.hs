@@ -4,8 +4,8 @@ module Module.Count where
 
 import Auto
 import Control.Arrow
-import Data.List
 import Control.Monad
+import Data.List
 import Types
 
 countAuto :: Monad m => Interact m

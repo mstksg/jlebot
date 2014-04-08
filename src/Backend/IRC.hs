@@ -14,7 +14,7 @@ import qualified Data.ByteString.Char8 as C8
 
 ircConf :: MVar (Interact IO) -> IrcConfig
 ircConf a = (mkDefaultConfig "irc.freenode.org" "jlebot")
-              { cChannels = ["#jlebot-test"]
+              { cChannels = ["#jlebot-test","#ucsd"]
               , cEvents   = [Privmsg (onMessage a)]
               }
 
