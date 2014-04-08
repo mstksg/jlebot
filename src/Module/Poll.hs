@@ -58,6 +58,14 @@ reportPoll (Poll n p o v) = ["\"" ++ p ++ "\" (" ++ n ++ ")"
                               $ o
                             ]
 
+reportSet :: Poll -> [String]
+reportSet (Poll n p o _) = [ "Poll set: " ++ p ++ " (" ++ n ++ ")"
+                           ,   intercalate "; "
+                             . map (\(ok,ov) -> "(" ++ [chr (ok + ord 'a')] ++ ") " ++ ov)
+                             . IM.toList
+                             $ o
+                           ]
+
 helpMsg :: [String]
 helpMsg = [ "Create and monitor polls --- @p (cmd) (opts) or @p (vote)"
           , "cmd: set question op1 op2 \"op 3\", report, reset, clear, help"
@@ -105,13 +113,7 @@ pollAuto = proc (InMessage nick msg) -> do
                     PCHelp   -> helpMsg
                     PCClear  -> return "Poll cleared!"
                     PCReset  -> return "Voting reset!"
-                    PCSet pl -> let (Poll n p o _) = pl
-                                in  [ "Poll set: " ++ p ++ " (" ++ n ++ ")"
-                                    ,   intercalate "; "
-                                      . map (\(ok,ov) -> "(" ++ [chr (ok + ord 'a')] ++ ") " ++ ov)
-                                      . IM.toList
-                                      $ o
-                                    ]
+                    PCSet pl -> reportSet pl
                     _        -> mzero
         returnA -< out
 
@@ -138,13 +140,13 @@ pollStatus = proc cmd -> do
     pollLoop :: Auto m (Maybe Poll, Maybe ()) (Maybe Poll, Maybe (Auto m (Maybe Poll, Maybe ()) (Maybe Poll)))
     pollLoop = proc (newp, clear) -> do
       poll <- hold -< newp
-      let next = switch pollLoop <$ clear
+      let next  = switch pollLoop <$ clear
           poll' = maybe poll (const Nothing) next
       returnA -< (poll', next)
     voteLoop :: Auto m (Maybe Vote, Maybe ()) (Map String Int, Maybe (Auto m (Maybe Vote, Maybe ()) (Map String Int)))
     voteLoop = proc (vote, reset) -> do
       votes <- scanE addVote M.empty -< vote
-      let next = switch voteLoop <$ reset
+      let next   = switch voteLoop <$ reset
           votes' = maybe votes (const M.empty) next
       returnA -< (votes', next)
     addVote m (Vote n i) = M.insert n i m
