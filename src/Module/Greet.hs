@@ -33,10 +33,12 @@ greetAuto = proc (InMessage nick msg) -> do
     case () of
       _ | isGreet || isJust reset -> do
             t      <- time    -< ()
+            gen    <- randGen -< ()
+
             let comm = maybe (Right (nick, t)) Left reset
 
             greets <- scanA processGreet M.empty -< comm
-            gen    <- randGen -< ()
+
             let numg   = length $ M.findWithDefault [] nick greets
                 gs     = greetings nick !! min (numg `div` 6) 3
                 gind   = fst (randomR (0, length gs - 1) gen)
@@ -60,7 +62,10 @@ greetAuto = proc (InMessage nick msg) -> do
 
 
 hasGreeting :: String -> Bool
-hasGreeting str = any (`isInfixOf` str) ["hi", "hello", "hey", "sup", "hola", "oy"]
+hasGreeting str = any (`elem` strwords )
+                      ["hi", "hello", "hey", "sup", "hola", "oy", "yo"]
+  where
+    strwords = words str
 
 greetings :: String -> [[String]]
 greetings n = (map . map) f glist
