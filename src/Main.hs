@@ -31,4 +31,4 @@ autoModules :: Monad m => [Interact m] -> Interact m
 autoModules = fmap (foldr (<|>) mzero) . sequenceA
 
 myAuto :: MonadIO m => Interact m
-myAuto = autoModules [countAuto, pollAuto, greetAuto, karmaAuto, haskAuto]
+myAuto = autoModules [countAuto, pollAuto, greetAuto, karmaAuto, haskAuto, reconAuto]
