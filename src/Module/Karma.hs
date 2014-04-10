@@ -13,17 +13,13 @@ import qualified Data.Map.Strict as M
 
 karmaAuto :: Monad m => Interact m
 karmaAuto = proc (InMessage _ msg) -> do
-    let pos = M.fromList $ zip (posKarms msg) (repeat 1)
-        neg = M.fromList $ zip (negKarms msg) (repeat (-1))
-        newkarm = M.unionWith (+) pos neg :: Map String Int
-        msgwords = words msg
+    let pos      = M.fromList $ zip (karms "++" msg) (repeat 1)
+        neg      = M.fromList $ zip (karms "--" msg) (repeat (-1))
+        newkarm  = M.unionWith (+) pos neg :: Map String Int
     karmalist <- scanA (M.unionWith (+)) M.empty -< newkarm
-    returnA -< case msgwords of
+    returnA -< case words msg of
       "@karma":n:_ -> return $ n ++ ": " ++ show (M.findWithDefault 0 n karmalist)
       _            -> mzero
-  where
-    posKarms = karms "++"
-    negKarms = karms "--"
 
 
 karm :: String -> String -> Maybe String

@@ -103,6 +103,11 @@ scanA f x' = Auto (fmap (scanA f) get) (put x') $ \dx ->
                let y = f x' dx
                in  return (y, scanA f y)
 
+arrM :: Monad m => (a -> m b) -> Auto m a b
+arrM f = Auto (pure (arrM f)) (pure ()) $ \x -> do
+           res <- f x
+           return (res, arrM f)
+
 -- integral :: (Fractional a, Monad m, Serialize a) => a -> Wire m a a
 -- -- integral x' =
 --     Wire (fmap integral get) (put x') $ \dt dx ->

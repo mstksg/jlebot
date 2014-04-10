@@ -40,7 +40,7 @@ greetAuto = proc (InMessage nick msg) -> do
             greets <- scanA processGreet M.empty -< comm
 
             let numg   = length $ M.findWithDefault [] nick greets
-                gs     = greetings nick !! min (numg `div` 6) 3
+                gs     = greetings nick !! min (numg `div` 3) 3
                 gind   = fst (randomR (0, length gs - 1) gen)
 
             returnA -< return $ case comm of
