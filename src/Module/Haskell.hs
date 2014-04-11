@@ -21,12 +21,14 @@ import Mueval.Parallel
 data IMode = IEval | IType
 
 ops :: String -> Options
-ops expr = ops' { modules  = Just ["Prelude"
-                                  ,"Control.Applicative"
-                                  ,"Control.Monad"
-                                  ,"Data.List"
-                                  ,"Data.Char"
-                                  ,"Data.Typeable"
+ops expr = ops' { modules  = Just [ "Prelude"
+                                  , "Control.Applicative"
+                                  , "Control.Monad"
+                                  , "Data.List"
+                                  , "Data.Char"
+                                  , "Data.Typeable"
+                                  , "Control.Arrow"
+                                  , "Data.Monoid"
                                   ] 
                 -- , loadFile = "misc/mueval-src/Utils.hs"
                 }
@@ -36,7 +38,7 @@ ops expr = ops' { modules  = Just ["Prelude"
 
 -- haskAuto :: Monad m => Interact m
 -- haskAuto = pure []
-haskAuto :: MonadIO m => Interact m
+haskAuto :: MonadIO m => Interact' m
 haskAuto = arrM $ haskInterp . inMessageBody
 
 haskInterp :: MonadIO m => String -> m [String]
@@ -72,5 +74,5 @@ haskInterp str = do
 
     return $ fromMaybe [] out'
 
-trunc n s | length s > n = take n s ++ "..."
-          | otherwise    = s
+-- trunc n s | length s > n = take n s ++ "..."
+--           | otherwise    = s

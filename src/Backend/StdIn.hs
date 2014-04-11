@@ -1,10 +1,13 @@
 module Backend.StdIn where
 
-import Types
 import Auto
-import Control.Monad.IO.Class
-import System.IO
 import Control.Exception
+import Control.Monad.IO.Class
+import Data.Foldable
+import Data.Time
+import Prelude hiding         (mapM_)
+import System.IO
+import Types
 
 stdinLoop :: MonadIO m => FilePath -> Interact m -> m ()
 stdinLoop fp a0 = do
@@ -20,8 +23,9 @@ loopAuto a' = do
                   try getLine :: IO (Either SomeException String)
     case inp of
       Right inp' -> do
-        (out, a) <- stepAuto a' (InMessage "justin" inp')
-        liftIO    $ mapM_ putStrLn out
+        t        <- liftIO getCurrentTime
+        (out, a) <- stepAuto a' (InMessage "justin" inp' "" t)
+        liftIO    $ (mapM_ . mapM_) putStrLn (outMessageMap out)
         loopAuto a
       Left _ -> return a'
 

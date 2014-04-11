@@ -24,8 +24,8 @@ instance Binary UTCTime where
     put = put . show
 
 
-greetAuto :: MonadIO m => Interact m
-greetAuto = proc (InMessage nick msg) -> do
+greetAuto :: MonadIO m => Interact' m
+greetAuto = proc (InMessage nick msg _ _) -> do
     let isGreet = "jlebot" `isInfixOf` msg && hasGreeting msg
         reset   = do
           guard ("@greet reset" `isPrefixOf` msg)

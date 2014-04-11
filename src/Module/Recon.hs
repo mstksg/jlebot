@@ -4,7 +4,7 @@ import Control.Arrow
 import Control.Monad
 import Types
 
-reconAuto :: Monad m => Interact m
+reconAuto :: Monad m => Interact' m
 reconAuto = arr (recon . inMessageBody)
 
 recon :: String -> [String]

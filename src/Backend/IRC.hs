@@ -3,14 +3,17 @@
 module Backend.IRC where
 
 import Auto
+import Data.Monoid
 import Control.Concurrent
 import Control.Exception
-import Control.Monad                   (void, mzero)
+import Control.Monad                   (void)
 import Data.Foldable
+import Data.Time
 import Network.SimpleIRC
 import Prelude hiding                  (mapM_)
 import Types
 import qualified Data.ByteString.Char8 as C8
+import qualified Data.Map.Strict       as M
 
 ircConf :: MVar (Interact IO) -> IrcConfig
 ircConf a = (mkDefaultConfig "irc.freenode.org" "jlebot")
@@ -27,13 +30,15 @@ ircLoop fp a0 = do
 
 onMessage :: MVar (Interact IO) -> EventFunc
 onMessage amvr server msg = do
-    resp <- modifyMVar amvr $ \a' ->
-      case mNick msg of
-        Just nick -> do
-          (out,a) <- stepAuto a' (InMessage (C8.unpack nick) (C8.unpack (mMsg msg)))
+    OutMessages resps <- modifyMVar amvr $ \a' ->
+      case (mNick msg, mOrigin msg) of
+        (Just nick, Just orig) -> do
+          t <- getCurrentTime
+          (out,a) <- stepAuto a' (InMessage (C8.unpack nick) (C8.unpack (mMsg msg)) (C8.unpack orig) t)
           return (a,out)
-        Nothing   ->
-          return (a',mzero)
-    forM_ (mOrigin msg) $ \o ->
-      mapM_ (sendMsg server o . C8.pack) resp
+        _   ->
+          return (a',mempty)
+
+    void . flip M.traverseWithKey resps $ \k v ->
+      mapM_ (sendMsg server (C8.pack k) . C8.pack) v
 

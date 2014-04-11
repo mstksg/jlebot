@@ -100,8 +100,8 @@ parseCommand nick = do
            <*> (IM.fromList . zip [0..] <$> many1 (spaces *> strlit))
            <*> pure M.empty
 
-pollAuto :: Monad m => Interact m
-pollAuto = proc (InMessage nick msg) -> do
+pollAuto :: Monad m => Interact' m
+pollAuto = proc (InMessage nick msg _ _) -> do
     let parsed = parse (parseCommand nick) "" msg
     case parsed of
       Right Nothing    -> returnA -< return "Invalid poll commmand; try @p help"

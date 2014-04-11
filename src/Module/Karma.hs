@@ -11,8 +11,8 @@ import Data.Maybe
 import Types
 import qualified Data.Map.Strict as M
 
-karmaAuto :: Monad m => Interact m
-karmaAuto = proc (InMessage _ msg) -> do
+karmaAuto :: Monad m => Interact' m
+karmaAuto = proc (InMessage _ msg _ _) -> do
     let pos      = M.fromList $ zip (karms "++" msg) (repeat 1)
         neg      = M.fromList $ zip (karms "--" msg) (repeat (-1))
         newkarm  = M.unionWith (+) pos neg :: Map String Int
