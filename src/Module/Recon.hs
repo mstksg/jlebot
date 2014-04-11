@@ -1,7 +1,8 @@
 module Module.Recon where
 
-import Types
 import Control.Arrow
+import Control.Monad
+import Types
 
 reconAuto :: Monad m => Interact m
 reconAuto = arr (recon . inMessageBody)
@@ -13,4 +14,4 @@ recon str = case words str of
                               , n ++ ": Major -- Computer Science and Engineering"
                               , "Data exhausted"
                               ]
-              _ -> []
+              _            -> mzero

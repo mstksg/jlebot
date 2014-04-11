@@ -21,8 +21,14 @@ import Mueval.Parallel
 data IMode = IEval | IType
 
 ops :: String -> Options
-ops expr = ops' { modules  = Just ["Prelude"] 
-                , loadFile = "misc/mueval-src/Utils.hs"
+ops expr = ops' { modules  = Just ["Prelude"
+                                  ,"Control.Applicative"
+                                  ,"Control.Monad"
+                                  ,"Data.List"
+                                  ,"Data.Char"
+                                  ,"Data.Typeable"
+                                  ] 
+                -- , loadFile = "misc/mueval-src/Utils.hs"
                 }
 
   where
@@ -36,7 +42,7 @@ haskAuto = arrM $ haskInterp . inMessageBody
 haskInterp :: MonadIO m => String -> m [String]
 haskInterp str = do
     let imode = case listToMaybe (words str) of
-                  Just ":t" -> Just IType
+                  -- Just ":t" -> Just IType
                   Just ">"  -> Just IEval
                   _         -> Nothing
 
@@ -58,7 +64,7 @@ haskInterp str = do
       res <- liftIO $ takeMVar wait
 
       return $ case res of
-                Just (Left e)  -> ["Error: " ++ show e]
+                Just (Left e)  -> ["Error: " ++ (unwords . take 1 . words . show) e]
                 Just (Right (_,t,r)) -> case mode of
                                           IEval -> [r]
                                           IType -> [t]
