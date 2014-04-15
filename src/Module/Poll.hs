@@ -64,6 +64,7 @@ reportSet (Poll n p o _) = [ "Poll set: " ++ p ++ " (" ++ n ++ ")"
                              . map (\(ok,ov) -> "(" ++ [chr (ok + ord 'a')] ++ ") " ++ ov)
                              . IM.toList
                              $ o
+                           , "Type @p (vote) to vote."
                            ]
 
 helpMsg :: [String]

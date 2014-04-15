@@ -6,6 +6,7 @@ module Module (
   , module Module.Haskell
   , module Module.Recon
   , module Module.Mouth
+  , module Module.Ask
   ) where
 
 import Module.Count
@@ -15,3 +16,4 @@ import Module.Greet
 import Module.Karma
 import Module.Haskell
 import Module.Mouth
+import Module.Ask

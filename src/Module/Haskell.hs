@@ -29,6 +29,7 @@ ops expr = ops' { modules  = Just [ "Prelude"
                                   , "Data.Typeable"
                                   , "Control.Arrow"
                                   , "Data.Monoid"
+                                  , "Data.Maybe"
                                   ] 
                 -- , loadFile = "misc/mueval-src/Utils.hs"
                 }

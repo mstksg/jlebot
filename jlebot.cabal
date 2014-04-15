@@ -33,5 +33,6 @@ executable jlebot
                      , random
                      , mueval
                      , deepseq
+                     , pureMD5
   hs-source-dirs:      src
   default-language:    Haskell2010

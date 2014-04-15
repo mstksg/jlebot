@@ -41,6 +41,7 @@ myAuto = autoModules [ i' countAuto
                      , i' karmaAuto
                      , i' haskAuto
                      , i' reconAuto
+                     , i' askAuto
                      , mouthAuto
                      ]
 
