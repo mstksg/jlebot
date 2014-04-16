@@ -31,6 +31,9 @@ ops expr = ops' { modules  = Just [ "Prelude"
                                   , "Data.Monoid"
                                   , "Data.Maybe"
                                   ] 
+                , namedExtensions = [ "Arrows"
+                                    , "ScopedTypeVariables"
+                                    ]
                 -- , loadFile = "misc/mueval-src/Utils.hs"
                 }
 

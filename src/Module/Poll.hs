@@ -67,6 +67,11 @@ reportSet (Poll n p o _) = [ "Poll set: " ++ p ++ " (" ++ n ++ ")"
                            , "Type @p (vote) to vote."
                            ]
 
+reportVote :: Vote -> Poll -> [String]
+reportVote (Vote n i) (Poll _ _ o _) = case i `IM.lookup` o of
+                                         Just c  -> [n ++ ": Vote counted (" ++ c ++ ")"]
+                                         Nothing -> [n ++ ": Not a valid option."]
+
 helpMsg :: [String]
 helpMsg = [ "Create and monitor polls --- @p (cmd) (opts) or @p (vote)"
           , "cmd: set question op1 op2 \"op 3\", report, reset, clear, help"
@@ -92,10 +97,10 @@ parseCommand nick = do
   where
     strlit =     between (char '"') (char '"') (many (noneOf "\""))
              <|> many1 (noneOf " ")
-    opt (x:[]) | isAsciiUpper x = Just (ord x - ord 'A')
-               | isAsciiLower x = Just (ord x - ord 'a')
-               | isDigit x      = Just (digitToInt x)
-    opt  _                      = Nothing
+    opt (x:_) | isAsciiUpper x = Just (ord x - ord 'A')
+              | isAsciiLower x = Just (ord x - ord 'a')
+              | isDigit x      = Just (digitToInt x)
+    opt  _                     = Nothing
     poll =     Poll nick
            <$> try strlit
            <*> (IM.fromList . zip [0..] <$> many1 (spaces *> strlit))
@@ -115,7 +120,7 @@ pollAuto = proc (InMessage nick msg _ _) -> do
                     PCClear  -> return "Poll cleared!"
                     PCReset  -> return "Voting reset!"
                     PCSet pl -> reportSet pl
-                    _        -> mzero
+                    PCVote v -> maybe [nick ++ ": Cannot vote, no poll!"] (reportVote v) poll
         returnA -< out
 
 pollStatus :: forall m. Monad m => Auto m PollCommand (Maybe Poll)
