@@ -3,18 +3,19 @@
 
 module Module.Greet (greetAuto) where
 
+-- import Control.Monad.IO.Class
 -- import Data.Map.Strict        (Map)
 -- import Event
 import Auto
 import Control.Applicative
 import Control.Arrow
 import Control.Monad
-import Control.Monad.IO.Class
 import Data.Binary
 import Data.List
 import Data.Maybe
 import Data.Monoid
 import Data.Time
+import Data.Time.Clock.POSIX
 import System.Random
 import Types
 import qualified Data.Map.Strict as M
@@ -24,18 +25,20 @@ instance Binary UTCTime where
     put = put . show
 
 
-greetAuto :: MonadIO m => Interact' m
-greetAuto = proc (InMessage nick msg _ _) -> do
+greetAuto :: Monad m => Interact' m
+greetAuto = proc (InMessage nick msg _ t) -> do
     let isGreet = "jlebot" `isInfixOf` msg && hasGreeting msg
         reset   = do
           guard ("@greet reset" `isPrefixOf` msg)
           Just . fromMaybe nick . listToMaybe . drop 2 . words $ msg
     case () of
       _ | isGreet || isJust reset -> do
-            t      <- time    -< ()
-            gen    <- randGen -< ()
 
             let comm = maybe (Right (nick, t)) Left reset
+                gen  = mkStdGen
+                     . round
+                     . utcTimeToPOSIXSeconds
+                     $ t
 
             greets <- scanA processGreet M.empty -< comm
 
@@ -124,11 +127,11 @@ greetings n = (map . map) f glist
             ]
 
 
-time :: MonadIO m => Auto m a UTCTime
-time = Auto (pure time) (put ()) $ \_ ->
-    liftM (,time) (liftIO getCurrentTime)
+-- time :: MonadIO m => Auto m a UTCTime
+-- time = Auto (pure time) (put ()) $ \_ ->
+--     liftM (,time) (liftIO getCurrentTime)
 
-randGen :: MonadIO m => Auto m a StdGen
-randGen = Auto (pure randGen) (put ()) $ \_ ->
-    liftM (,randGen) (liftIO newStdGen)
+-- randGen :: MonadIO m => Auto m a StdGen
+-- randGen = Auto (pure randGen) (put ()) $ \_ ->
+--     liftM (,randGen) (liftIO newStdGen)
 
