@@ -3,7 +3,7 @@
 module Types where
 
 import Auto
-import Data.Map.Strict
+import Data.Map.Strict (Map, unionsWith)
 import Data.Time
 import Data.Monoid
 
@@ -19,3 +19,6 @@ newtype OutMessages = OutMessages { outMessageMap :: Map String [String]
 type Interact m = Auto m InMessage OutMessages
 
 type Interact' m = Auto m InMessage [String]
+
+combineOutMessages :: [OutMessages] -> OutMessages
+combineOutMessages = OutMessages . unionsWith (<>) . map outMessageMap

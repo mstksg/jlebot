@@ -5,6 +5,7 @@
 module Main where
 
 -- import Control.Applicative
+-- import Data.Monoid
 -- import System.Directory
 import Backend.IRC
 import Backend.StdIn
@@ -12,7 +13,6 @@ import Control.Arrow
 import Control.Monad hiding      (mapM_, forM_)
 import Control.Monad.IO.Class
 import Data.Foldable
-import Data.Monoid
 import Data.Traversable
 import Module
 import Prelude hiding            (mapM_, sequence, foldr, concat, elem)
@@ -32,7 +32,7 @@ main = do
       else stdinLoop "data/state_stdin" myAuto
 
 autoModules :: Monad m => [Interact m] -> Interact m
-autoModules = fmap (OutMessages . M.unionsWith (<>) . map outMessageMap) . sequenceA
+autoModules = fmap combineOutMessages . sequenceA
 
 myAuto :: MonadIO m => Interact m
 myAuto = autoModules [ i' countAuto
