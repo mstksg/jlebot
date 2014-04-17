@@ -38,7 +38,6 @@ censor (InMessage n msg _ _) | textMsg /= censorAll = [  n
 reps :: [(Text, Text)]
 reps = [ ("fuck"   , "intercourse")
        , ("shit"   , "poop")
-       , ("cunt"   , "nice lady")
        , ("bitch"  , "nice lady")
        , ("slut"   , "friendly lady")
        , ("shekels", "dat paper")
