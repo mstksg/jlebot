@@ -7,6 +7,7 @@ module Module (
   , module Module.Recon
   , module Module.Mouth
   , module Module.Ask
+  , module Module.Censor
   ) where
 
 import Module.Count
@@ -17,3 +18,4 @@ import Module.Karma
 import Module.Haskell
 import Module.Mouth
 import Module.Ask
+import Module.Censor

@@ -28,9 +28,13 @@ instance Binary UTCTime where
 greetAuto :: Monad m => Interact' m
 greetAuto = proc (InMessage nick msg _ t) -> do
     let isGreet = "jlebot" `isInfixOf` msg && hasGreeting msg
-        reset   = do
-          guard ("@greet reset" `isPrefixOf` msg)
-          Just . fromMaybe nick . listToMaybe . drop 2 . words $ msg
+        reset   | "@greet reset" `isPrefixOf` msg = Just
+                                                  . fromMaybe nick
+                                                  . listToMaybe
+                                                  . drop 2
+                                                  . words
+                                                  $ msg
+                | otherwise                       = Nothing
     case () of
       _ | isGreet || isJust reset -> do
 
