@@ -20,20 +20,9 @@ censor (InMessage n msg _ _) | textMsg /= censorAll = [  n
                                                       ++ T.unpack censorAll
                                                       ]
                              | otherwise            = mzero
--- censor (InMessage n msg _ _) | any fst censorPairs = [  n
---                                                      ++ " meant to say: "
---                                                      ++ unwords (map snd censorPairs)
---                                                      ]
---                              | otherwise           = mzero
   where
     textMsg   = T.pack msg
     censorAll = foldl' (\s (a,b) -> T.replace a b s) textMsg reps
-    -- censorPairs = map censorWord (words msg)
-    -- censorWord word = case word `M.lookup` reps of
-    --                     Just rep -> (True, rep)
-    --                     Nothing  -> (False, word)
-    -- | any (`isInfixOf` msg) (M.elems reps) = [n ++ " meant to say: " ++ M.findWithDefault "" ]
-    -- | otherwise = mzero
 
 reps :: [(Text, Text)]
 reps = [ ("fuck"   , "intercourse")
