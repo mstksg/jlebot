@@ -8,6 +8,7 @@ module Module (
   , module Module.Mouth
   , module Module.Ask
   , module Module.Censor
+  , module Module.Pokemon
   ) where
 
 import Module.Count
@@ -19,3 +20,4 @@ import Module.Haskell
 import Module.Mouth
 import Module.Ask
 import Module.Censor
+import Module.Pokemon

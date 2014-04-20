@@ -7,16 +7,19 @@ module Auto where
 
 import Control.Applicative
 import Control.Arrow
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Control.Category
+import Data.Traversable
 import Control.Exception
-import Control.Monad hiding (mapM_)
+import Control.Monad hiding (mapM_, sequence_, sequence)
 import Control.Monad.Fix
 import Data.Binary
 import Data.Binary.Get
 import Data.Binary.Put
 import Data.ByteString.Lazy as B
 import Data.Foldable
-import Prelude hiding       ((.), id, mapM_)
+import Prelude hiding       ((.), id, mapM_, sequence_, sequence)
 import System.IO
 
 data Auto m a b = Auto { loadAuto :: Get (Auto m a b)
@@ -107,6 +110,24 @@ arrM :: Monad m => (a -> m b) -> Auto m a b
 arrM f = Auto (pure (arrM f)) (pure ()) $ \x -> do
            res <- f x
            return (res, arrM f)
+
+cacheAuto :: Monad m => m b -> Auto m a b
+cacheAuto f = Auto (pure (cacheAuto f)) (pure ()) $ \_ -> do
+                res <- f
+                return (res, pure res)
+
+multiAuto :: forall m c a b. (Monad m, Ord c) => (c -> Auto m a b) -> Auto m (c, a) b
+multiAuto f = go M.empty
+  where
+    go :: (Monad m, Ord c) => Map c (Auto m a b) -> Auto m (c, a) b
+    go m = Auto
+             (go <$> sequence (fmap loadAuto m))
+             (sequence_ (fmap saveAuto m)) $ \(k,x) -> do
+               let a' = M.findWithDefault (f k) k m
+               (out, a) <- stepAuto a' x
+               let m' = M.insert k a m
+               return (out, go m')
+
 
 -- integral :: (Fractional a, Monad m, Serialize a) => a -> Wire m a a
 -- -- integral x' =

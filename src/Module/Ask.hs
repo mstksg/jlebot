@@ -2,6 +2,7 @@ module Module.Ask where
 
 import Control.Arrow
 import Data.Binary
+import Data.Char
 import Data.Digest.Pure.MD5
 import Control.Monad
 import Data.Maybe
@@ -15,13 +16,19 @@ askAuto = arr ask
 ask :: InMessage -> [String]
 ask (InMessage nick msg _ time) = case words msg of
                                     "@ask":_:_ -> [nick ++ ": " ++ res]
+                                    "jlebot:":_:_ | not (hasGreeting msg) -> [nick ++ ": " ++ res]
                                     _          -> mzero
   where
     res = cycle responses !! fromInteger bhead
     day = toModifiedJulianDay $ utctDay time
-    dig = md5 $ B.concat [encode nick, encode msg, encode day]
+    dig = md5 $ B.concat [encode nick, encode (map toLower msg), encode day]
     bhead = toInteger . fromMaybe 0 . listToMaybe . B.unpack . encode $ dig
 
+hasGreeting :: String -> Bool
+hasGreeting str = any (`elem` strwords )
+                      ["hi", "hello", "hey", "sup", "hola", "oy", "yo"]
+  where
+    strwords = words str
 
 responses :: [String]
 responses = [ "Yes"
