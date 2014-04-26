@@ -4,14 +4,27 @@ import Auto
 import Data.Binary
 import Control.Applicative
 
-hold' :: (Monad m, Binary a) => a -> Auto m (Maybe a) a
+type Event = Maybe
+
+noEvent :: Maybe a
+noEvent = Nothing
+
+event :: a -> Maybe a
+event = Just
+
+whenE :: Bool -> a -> Maybe a
+whenE False _ = Nothing
+whenE True a  = Just a
+
+
+hold' :: (Monad m, Binary a) => a -> Auto m (Event a) a
 hold' x' = Auto (fmap hold' get) (put x') $ \dx ->
              case dx of
                Nothing -> return (x', hold' x')
                Just x  -> return (x, hold' x)
            -- or scanE (flip const)
 
-hold :: (Monad m, Binary a) => Auto m (Maybe a) (Maybe a)
+hold :: (Monad m, Binary a) => Auto m (Event a) (Maybe a)
 hold = go Nothing
   where
     go x' = Auto (fmap go get) (put x') $ \dx ->
@@ -19,23 +32,23 @@ hold = go Nothing
                 Nothing -> return (x', go x')
                 Just _  -> return (dx, go dx)
 
-scanE :: (Monad m, Binary b) => (b -> a -> b) -> b -> Auto m (Maybe a) b
+scanE :: (Monad m, Binary b) => (b -> a -> b) -> b -> Auto m (Event a) b
 scanE f x' = Auto (fmap (scanE f) get) (put x') $ \dx ->
                case dx of
                  Nothing -> return (x', scanE f x')
                  Just x  -> let y = f x' x
                             in  return (y, scanE f y)
 
-switch :: Monad m => Auto m a (b, Maybe (Auto m a b)) -> Auto m a b
+switch :: Monad m => Auto m a (b, Event (Auto m a b)) -> Auto m a b
 switch a' = Auto (fmap switch (loadAuto a')) (saveAuto a') $ \dx -> do
               ((out,sw),a) <- stepAuto a' dx
               case sw of
                 Nothing -> return (out, switch a)
                 Just a2 -> return (out, a2)
+                -- Just a2 -> stepAuto a2 dx
 
 
-
-until :: Monad m => Auto m (a, Maybe b) (Maybe a)
+until :: Monad m => Auto m (a, Event b) (Maybe a)
 until = Auto (pure Event.until) (pure ()) $ \(x,e) ->
           case e of
             Just _  -> return (Nothing, pure Nothing)

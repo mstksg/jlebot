@@ -3,6 +3,7 @@
 module Module.Censor where
 
 import Types
+import Data.Char
 import Control.Arrow
 import qualified Data.Text as T
 import Data.Text (Text)
@@ -26,8 +27,13 @@ censor (InMessage n msg _ t)
   where
     textMsg   = T.pack msg
     censorAll = foldl' (\s (a,b) -> T.replace a b s) textMsg reps
-    gen  = mkStdGen . round . utcTimeToPOSIXSeconds $ t
-    choice = (<= (4 :: Int)) . fst . randomR (1,16) $ gen
+    gen  = mkStdGen
+         . (+ sum (map ord (n ++ msg)))
+         . round
+         . (* 1000)
+         . utctDayTime
+         $ t
+    choice = (== (1 :: Int)) . fst . randomR (1,8) $ gen
 
 
 reps :: [(Text, Text)]
@@ -36,7 +42,7 @@ reps = [ ("fuck"   , "intercourse")
        , ("bitch"  , "nice lady")
        , ("slut"   , "friendly lady")
        , ("shekels", "dat paper")
-       -- , ("wow"    , "WOW")
-       -- , ("hell"  , "florida")
+       , ("wow"    , "WOW")
+       , ("hell"  , "florida")
        , ("fack"   , "intarcourse")
        ]

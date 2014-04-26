@@ -1,9 +1,11 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Module.Pokemon where
 
 import Auto
 import Data.List
+import Data.Char
 import Control.Applicative
 import Control.Arrow
 import Control.Monad
@@ -16,7 +18,6 @@ import Data.Pokemon
 import Data.Pokemon.Load
 import Data.Pokemon.PalPark
 import Data.Time
-import Data.Time.Clock.POSIX
 import Event
 import Text.Parsec
 import Text.Parsec.String
@@ -29,17 +30,22 @@ type PMPD = ((IntMap Species, IntMap Move), IntMap (PalArea, Int))
 databasedir :: FilePath
 databasedir = "../pokemon/data"
 
-data PokeCommand = PCCatch
+data PokeCommand = PCSearch
                  | PCCheck
+                 | PCPokedex Int
                  deriving Show
 
 parseCommand :: Parser PokeCommand
 parseCommand = do
     wrd <- many1 alphaNum
     case wrd of
-      "catch" -> return PCCatch
+      "search" -> return PCSearch
+      "look"  -> return PCSearch
+      "catch" -> return PCSearch
       "list"  -> return PCCheck
       "check" -> return PCCheck
+      "show"  -> return PCCheck
+      "dex"   -> PCPokedex . read <$> (spaces *> many1 digit)
       _       -> mzero
 
 pokeAuto :: MonadIO m => Interact' m
@@ -65,23 +71,55 @@ personalAuto = proc (InMessage nick msg _ t, ((specs,moves),pals)) -> do
     let parsed = parse parseCommand "" msg
     case parsed of
       Right comm -> do
-        let gen    = mkStdGen . round . utcTimeToPOSIXSeconds $ t
+        let gen  = mkStdGen
+                 . round
+                 . (* 1000)
+                 . utctDayTime
+                 $ t
             palmap = palAreas pals
-            caught = case comm of
-                       PCCatch -> flip evalRand gen $ do
-                         caughtany <- getRandomR (1 :: Int,10)
-                         if caughtany < 7
-                           then do
-                             region <- (palAreaList !!) <$> getRandomR (0,length palAreaList - 1)
-                             pid    <- randPal region palmap
-                             return (Just (specs IM.! pid))
-                           else
-                             return Nothing
-                       _       -> Nothing
-            caughtmsg = case (comm,caught) of
-                          (PCCatch, Nothing) -> [nick ++ ": Nothing found, sorry."]
-                          (PCCatch, Just sp) -> [nick ++ ": Caught a " ++ T.unpack (_speciesName sp) ++ "!"]
-                          _                  -> []
+            caughtdata = case comm of
+                           PCSearch -> flip evalRand gen $ do
+                             encountered <- getRandomR (1,10)
+                             if encountered < (9 :: Int)
+                               then do
+                                region <- (palAreaList !!) <$> getRandomR (0,length palAreaList - 1)
+                                pid    <- randPal region palmap
+                                let found = specs IM.! pid
+                                    crateint = min 5 (_speciesCatchRate found)
+                                    crate = log (fromIntegral crateint) :: Double
+                                croll <- getRandomR (0,crate)
+                                return (Right (found, croll))
+                              else
+                                return (Left True)
+                           _       -> Left False
+            caught = fmap fst
+                   . mfilter ((> 1.5) . snd)
+                   . either (const Nothing) Just
+                   $ caughtdata
+            caughtmsg = case caughtdata of
+                          Right (found, croll) -> [ nick ++ ": Found a " ++ T.unpack (_speciesName found) ++ ", attempting to catch!" ]
+                                                  ++ if croll > 1
+                                                       then [ nick ++ ": Caught!" ]
+                                                       else [ nick ++ ": It got away!" ]
+                          Left True            -> [ nick ++ ": Did not find any pokemon." ]
+                          Left False           -> mzero
+            dexmsg = case comm of
+                       PCPokedex i ->
+                        let pklu = IM.lookup i specs
+                        in  case pklu of
+                              Just lu -> return
+                                       . unwords
+                                       . lines
+                                       . T.unpack
+                                       . T.concat
+                                       $ [ "Pokedex entry for "
+                                         , _speciesName lu
+                                         , " ("
+                                         , T.pack (show i)
+                                         , "): "
+                                         , _speciesDescription lu
+                                         ]
+                              Nothing -> [ "Pokemon " ++ show i ++ " not found." ]
         pokes <- scanE (<>) mempty -< (:[]) <$> caught
         let checkmsg = case comm of
                          PCCheck -> [ nick ++ ": You have " ++ show numpokes ++ " pokemon:" ]
@@ -91,10 +129,10 @@ personalAuto = proc (InMessage nick msg _ t, ((specs,moves),pals)) -> do
                          _       -> mzero
             numpokes = length pokes
             pokenames = map (T.unpack . _speciesName) pokes
-            outs = caughtmsg <> checkmsg
+            outs = caughtmsg <> checkmsg <> dexmsg
         returnA -< outs
       Left _  ->
-        returnA -< mzero
+        returnA -< [ nick ++ ": Invalid command.  Welp." ]
     
 
 

@@ -3,6 +3,7 @@
 module Types where
 
 import Auto
+import Data.Foldable
 import Data.Map.Strict (Map, unionsWith)
 import Data.Time
 import Data.Monoid

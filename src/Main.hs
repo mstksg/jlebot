@@ -44,6 +44,7 @@ myAuto = autoModules [ i' countAuto
                      , i' askAuto
                      , i' censorAuto
                      , i' pokeAuto
+                     , i' hangmanAuto
                      , mouthAuto
                      ]
 

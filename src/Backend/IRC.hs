@@ -1,8 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Backend.IRC where
 
 import Auto
+import Control.Applicative
 import Data.Monoid
 import Control.Concurrent
 import Control.Exception
@@ -21,10 +23,21 @@ ircConf a = (mkDefaultConfig "irc.freenode.org" "jlebot")
               , cEvents   = [Privmsg (onMessage a)]
               }
 
+launchIRC :: MVar (Interact IO) -> IO ()
+launchIRC amvr = () <$ connect (ircConf amvr) False True
+
+-- launchIRC :: MVar (Interact IO) -> IO ()
+-- launchIRC amvr = do
+--     let conf = ircConf amvr
+--     conn <- connect conf False True
+--     forM_ conn $ \mirc -> do
+--       forM_ (cChannels conf) $ \chn -> do
+--         sendMsg mirc (C8.pack chn) "hello everyone!"
+
 ircLoop :: FilePath -> Interact IO -> IO ()
 ircLoop fp a0 = do
     amvr <- newMVar =<< loadAutoFile fp a0
-    catch (void $ connect (ircConf amvr) False True) $ \(_ :: AsyncException) ->
+    catch (launchIRC amvr) $ \(_ :: AsyncException) ->
       withMVar amvr (writeAutoFile "data/state")
     return ()
 

@@ -49,7 +49,7 @@ haskInterp :: MonadIO m => String -> m [String]
 haskInterp str = do
     let imode = case listToMaybe (words str) of
                   -- Just ":t" -> Just IType
-                  Just ">"  -> Just IEval
+                  Just ">>"  -> Just IEval
                   _         -> Nothing
 
     out' <- forM imode $ \mode -> do

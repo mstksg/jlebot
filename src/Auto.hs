@@ -7,20 +7,21 @@ module Auto where
 
 import Control.Applicative
 import Control.Arrow
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
 import Control.Category
-import Data.Traversable
 import Control.Exception
-import Control.Monad hiding (mapM_, sequence_, sequence)
+import Control.Monad hiding      (mapM_, sequence_, sequence)
 import Control.Monad.Fix
 import Data.Binary
 import Data.Binary.Get
 import Data.Binary.Put
-import Data.ByteString.Lazy as B
+import Data.ByteString.Lazy      as B
 import Data.Foldable
-import Prelude hiding       ((.), id, mapM_, sequence_, sequence)
+import Data.Map.Strict           (Map)
+import Data.Monoid
+import Data.Traversable
+import Prelude hiding            ((.), id, mapM_, sequence_, sequence)
 import System.IO
+import qualified Data.Map.Strict as M
 
 data Auto m a b = Auto { loadAuto :: Get (Auto m a b)
                        , saveAuto :: Put
@@ -75,6 +76,11 @@ instance Monad m => ArrowChoice (Auto m) where
           case x' of
             Left  y -> liftM (Left *** left) (step y)
             Right z -> return (Right z, left a)
+
+
+instance (Monad m, Monoid b) => Monoid (Auto m a b) where
+    mempty  = pure mempty
+    mappend = liftA2 mappend
 
 encodeAuto :: Auto m a b -> ByteString
 encodeAuto = runPut . saveAuto

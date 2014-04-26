@@ -41,7 +41,8 @@ greetAuto = proc (InMessage nick msg _ t) -> do
             let comm = maybe (Right (nick, t)) Left reset
                 gen  = mkStdGen
                      . round
-                     . utcTimeToPOSIXSeconds
+                     . (* 1000)
+                     . utctDayTime
                      $ t
 
             greets <- scanA processGreet M.empty -< comm
