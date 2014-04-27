@@ -63,7 +63,7 @@ toPhrase = mfilter validPhrase . return . unwords . words . unwords . fmap (filt
 
 parseCommand :: Parser [CGCommand]
 parseCommand = do
-    cont <- optionMaybe commCont
+    cont <- optionMaybe (try commCont)
     case cont of
       Just c  -> return [c]
       Nothing -> sepBy1 (commUnsub <|> commSub) spaces
@@ -75,15 +75,6 @@ parseCommand = do
                       ]
     commUnsub = CGUnsub <$> (char '!' *> satisfy isAlpha)
     commSub   = CGSub <$> satisfy isAlpha <*> (spaces *> satisfy isAlpha)
-
-
--- parseCommand :: [String] -> Maybe CGCommand
--- parseCommand ((x:[]):(y:[]):[]) | isAlpha x && isAlpha y = Just (CGSub x y)
--- parseCommand (('!':x:[]):[])    | isAlpha x              = Just (CGUnsub x)
--- parseCommand ("show":[]) = Just CGShow
--- parseCommand ("help":[]) = Just CGHelp
--- parseCommand ("new":[])  = Just CGNew
--- parseCommand _           = Nothing
 
 
 cryptogramAuto :: Monad m => Interact m
@@ -137,8 +128,8 @@ displayPuzzle (Puzzle s p i st) = displayPrefix st
            PuzzleSolved p'' -> p''
            PuzzleFailure p'' -> p''
            _ -> p
-    displayPrefix PuzzleActive = "Active:"
-    displayPrefix (PuzzleSolved _) = "Solved!"
+    displayPrefix PuzzleActive      = "Active:"
+    displayPrefix (PuzzleSolved _)  = "Solved!"
     displayPrefix (PuzzleFailure _) = "Failure!"
     displayPerm = concat . map (\(k,v) -> k:v:[]) . M.toList
 

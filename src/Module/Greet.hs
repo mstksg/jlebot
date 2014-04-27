@@ -71,7 +71,7 @@ greetAuto = proc (InMessage nick msg _ t) -> do
 
 hasGreeting :: String -> Bool
 hasGreeting str = any (`elem` strwords )
-                      ["hi", "hello", "hey", "sup", "hola", "oy", "yo"]
+                      ["hi", "hello", "hey", "sup", "hola", "oy", "yo", "wb"]
   where
     strwords = words str
 
