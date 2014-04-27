@@ -2,21 +2,21 @@
 
 module Module.Haskell (haskAuto) where
 
+-- import Control.Applicative
+-- import Control.Arrow
+-- import Control.Exception
+-- import Mueval.Parallel
+-- import Prelude hiding            (forM)
 import Auto
-import Control.Applicative
-import Data.Maybe
-import Control.Arrow
-import Control.DeepSeq
-import Control.Monad hiding (forM)
-import Data.Traversable
 import Control.Concurrent
-import Prelude hiding (forM)
-import Control.Exception
+import Control.DeepSeq
+import Control.Monad hiding         (forM)
+import Data.Maybe
+import Data.Traversable
 import Language.Haskell.Interpreter
-import Types
 import Mueval.ArgsParse
 import Mueval.Interpreter
-import Mueval.Parallel
+import Types
 
 data IMode = IEval | IType
 
@@ -30,7 +30,7 @@ ops expr = ops' { modules  = Just [ "Prelude"
                                   , "Control.Arrow"
                                   , "Data.Monoid"
                                   , "Data.Maybe"
-                                  ] 
+                                  ]
                 , namedExtensions = [ "Arrows"
                                     , "ScopedTypeVariables"
                                     ]
@@ -54,7 +54,7 @@ haskInterp str = do
 
     out' <- forM imode $ \mode -> do
       let str' = parens . unwords . drop 1 . words $ str
-      wait <- liftIO $ newEmptyMVar
+      wait <- liftIO newEmptyMVar
       tid <- liftIO . forkIO $ do
         res <- runInterpreter (interpreter (ops str'))
         out <- case res of
