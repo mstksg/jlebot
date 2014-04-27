@@ -134,7 +134,6 @@ multiAuto f = go M.empty
                let m' = M.insert k a m
                return (out, go m')
 
-
 -- integral :: (Fractional a, Monad m, Serialize a) => a -> Wire m a a
 -- -- integral x' =
 --     Wire (fmap integral get) (put x') $ \dt dx ->

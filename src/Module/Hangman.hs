@@ -30,6 +30,7 @@ poolSize :: Int
 poolSize = 500
 
 data HMCommand = HMGuess Char
+               | HMSolve String
                | HMShow
                | HMNew
                | HMHelp
@@ -77,17 +78,14 @@ roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
                                           $ gen
             obscPhr = map (uncover []) <$> randPhrase
             newPuzz = Puzzle <$> obscPhr <*> pure [] <*> pure PuzzleActive
-        case comm of
-          Just comm' -> do
-            puzz <- switch (puzzleAuto Nothing) -< (comm', randPhrase)
-            returnA -< case (puzz, comm') of
-              (_, HMHelp)  -> return "It's simple. We solve the hangman.  @hm (c) to guess, @hm show to show status, @hm new for new game."
-              (_, HMNew)   | null totalPool -> return "Phrase dictionary empty.  Try again later."
-                           | otherwise      -> return "New game created!"
-                                            ++ maybeToList (displayPuzzle <$> newPuzz)
-              (Nothing, _) -> return "No game."
-              (Just p , _) -> return (displayPuzzle p)
-          _          -> returnA -< return "Invalid hangman commmand.  Try @hm help for more information."
+        puzz <- switch (puzzleAuto Nothing) -< (comm, randPhrase)
+        returnA -< case (puzz, comm) of
+          (_, HMHelp)  -> return "It's simple. We solve the hangman.  @hm (c) to guess, @hm show to show status, @hm new for new game."
+          (_, HMNew)   | null totalPool -> return "Phrase dictionary empty.  Try again later."
+                       | otherwise      -> return "New game created!"
+                                        ++ maybeToList (displayPuzzle <$> newPuzz)
+          (Nothing, _) -> return "No game. @hm new for new game."
+          (Just p , _) -> return (displayPuzzle p)
       _                 -> returnA -< mzero
 
 displayPuzzle :: Puzzle -> String
@@ -103,8 +101,8 @@ displayPuzzle (Puzzle s m p) = displayPrefix p
            PuzzleFailure w -> w
            PuzzleSolved w  -> w
            _               -> m
-    displayPrefix PuzzleActive = "Active:"
-    displayPrefix (PuzzleSolved _) = "Solved!"
+    displayPrefix PuzzleActive      = "Active:"
+    displayPrefix (PuzzleSolved _)  = "Solved!"
     displayPrefix (PuzzleFailure _) = "Failure!"
 
 puzzleAuto :: forall m. Monad m => Maybe String -> Auto m (HMCommand, Maybe String) (Maybe Puzzle, Event (Auto m (HMCommand, Maybe String) (Maybe Puzzle)))
@@ -115,21 +113,34 @@ puzzleAuto str0 = proc (comm, newphrase) -> do
 
         guesscorr :: Event (Bool, Char)
         guesscorr = case comm of
-                    HMGuess c -> ((toUpper c `elem`) &&& const (toUpper c)) <$> str0
-                    _         -> noEvent
+                      HMGuess c -> ((c `elem`) &&& const c) <$> str0
+                      _         -> noEvent
         cguess :: Event Char
         cguess    = snd <$> mfilter fst         guesscorr
         wguess :: Event Char
         wguess    = snd <$> mfilter (not . fst) guesscorr
 
-    cguesses <- scanE (\xs x -> nub (x:xs)) [] -< cguess
-    wguesses <- reverse
-            <$> scanE (\xs x -> nub (x:xs)) [] -< wguess
+        solvedcorr :: Event Bool
+        solvedcorr = case comm of
+                       HMSolve s -> (s ==) <$> str0
+                       _         -> noEvent
 
-    let wrongs  = length wguesses
-        solved  = isJust . mfilter (all (`elem` (' ':cguesses))) $ str0
-        solvedE = PuzzleSolved wguesses  <$ guard solved
-        failedE = PuzzleFailure wguesses <$ guard (wrongs >= maxWrong)
+        wsolve :: Event Char
+        wsolve    = '*' <$ mfilter not solvedcorr
+
+        csolve :: Event ()
+        csolve    = ()  <$ mfilter id solvedcorr
+
+
+    cguesses <- scanE (\xs x -> nub' x (x:xs)) [] -< cguess
+    wguesses <- reverse
+            <$> scanE (\xs x -> nub' x (x:xs)) [] -< wguess <|> wsolve
+
+    let wrongs   = length wguesses
+        guessall = isJust . mfilter (all (`elem` (' ':cguesses))) $ str0
+        solved   = guessall || isJust csolve
+        solvedE  = PuzzleSolved wguesses  <$ guard solved
+        failedE  = PuzzleFailure wguesses <$ guard (wrongs >= maxWrong)
 
     status <- fromMaybe PuzzleActive
           <$> scanA (<|>) Nothing    -< failedE <|> solvedE
@@ -140,6 +151,9 @@ puzzleAuto str0 = proc (comm, newphrase) -> do
         puzz   = Puzzle <$> strout <*> pure wguesses <*> pure status
     returnA -< (puzz, newPuzz)
 
+nub' :: Char -> String -> String
+nub' '*' = id
+nub' _   = nub
 
 uncover :: String -> Char -> Char
 uncover guesses c | c `elem` guesses = c
@@ -156,10 +170,10 @@ validPhrase (words->str) = validLength (length str) && notComm str
 concLim :: Int -> [a] -> a -> [a]
 concLim n xs x = take n (x:xs)
 
-parseCommand :: [String] -> Maybe HMCommand
-parseCommand ((g:[]):[]) = Just (HMGuess g)
-parseCommand ("show":[]) = Just HMShow
-parseCommand ("help":[]) = Just HMHelp
-parseCommand ("new":[])  = Just HMNew
-parseCommand _           = Nothing
+parseCommand :: [String] -> HMCommand
+parseCommand ((g:[]):[]) | isAlphaNum g = HMGuess . toUpper $ g
+parseCommand ("show":[]) = HMShow
+parseCommand ("help":[]) = HMHelp
+parseCommand ("new":[])  = HMNew
+parseCommand s           = HMSolve . map toUpper . unwords $ s
 

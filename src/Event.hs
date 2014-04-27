@@ -65,6 +65,17 @@ a0 --> a1 = Auto ((-->) <$> loadAuto a0 <*> loadAuto a1)
                   (res', a1') <- stepAuto a1 x
                   return (res', a1')
 
+accelAuto :: Monad m => Auto m (Event a) b -> Auto m (Event [a]) b
+accelAuto a0 = Auto (accelAuto <$> loadAuto a0) (saveAuto a0) $ flip go a0
+  where
+    go (Just (x:xs)) a' = do
+      (_, a) <- stepAuto a' (Just x)
+      go (Just xs) a
+    go _ a' = do
+      (res, a) <- stepAuto a' Nothing
+      return (res, accelAuto a)
+
+
 -- (-->) :: Monad m => Auto m a (Maybe b) -> Auto m a b -> Auto m a b
 -- a0 --> a1 = Auto ((-->) <$> get <*> get) (put a0 >> put a1) $ \x -> do
 --               (res, a0') <- stepAuto a0 x
