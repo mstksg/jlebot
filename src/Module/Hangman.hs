@@ -48,7 +48,7 @@ data Puzzle = Puzzle { _puzzleStr    :: String
                      } deriving (Show, Eq)
 
 toPhrase :: String -> Maybe String
-toPhrase = mfilter validPhrase . return . unwords . words . map toUpper
+toPhrase = mfilter validPhrase . return . unwords . words . unwords . map (filter isAlphaNum) . words . map toUpper
 
 hangmanAuto :: Monad m => Interact m
 hangmanAuto = proc im@(InMessage _ msg src _) -> do

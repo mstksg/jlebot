@@ -1,9 +1,7 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Types where
 
 import Auto
-import Data.Map.Strict (Map, unionsWith)
+import Data.Map.Strict (Map, unionsWith, unionWith)
 import Data.Time
 import Data.Monoid
 
@@ -14,7 +12,11 @@ data InMessage = InMessage { inMessageNick   :: String
                            }
 
 newtype OutMessages = OutMessages { outMessageMap :: Map String [String]
-                                  } deriving (Monoid)
+                                  }
+
+instance Monoid OutMessages where
+    mempty = OutMessages mempty
+    mappend (OutMessages a) (OutMessages b) = OutMessages (unionWith (<>) a b)
 
 type Interact m = Auto m InMessage OutMessages
 

@@ -33,7 +33,7 @@ censor (InMessage n msg _ t)
          . (* 1000)
          . utctDayTime
          $ t
-    choice = (== (1 :: Int)) . fst . randomR (1,16) $ gen
+    choice = (== (1 :: Int)) . fst . randomR (1,32) $ gen
 
 
 reps :: [(Text, Text)]

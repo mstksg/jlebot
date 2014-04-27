@@ -5,7 +5,6 @@
 module Main where
 
 -- import Control.Applicative
--- import Data.Monoid
 -- import System.Directory
 import Backend.IRC
 import Backend.StdIn
@@ -13,6 +12,7 @@ import Control.Arrow
 import Control.Monad hiding      (mapM_, forM_)
 import Control.Monad.IO.Class
 import Data.Foldable
+import Data.Monoid
 import Data.Traversable
 import Module
 import Prelude hiding            (mapM_, sequence, foldr, concat, elem)
@@ -31,22 +31,20 @@ main = do
       then ircLoop "data/state_irc" myAuto
       else stdinLoop "data/state_stdin" myAuto
 
-autoModules :: Monad m => [Interact m] -> Interact m
-autoModules = fmap combineOutMessages . sequenceA
-
 myAuto :: MonadIO m => Interact m
-myAuto = autoModules [ i' countAuto
-                     , i' pollAuto
-                     , i' greetAuto
-                     , i' karmaAuto
-                     , i' haskAuto
-                     , i' reconAuto
-                     , i' askAuto
-                     , i' censorAuto
-                     , i' pokeAuto
-                     , hangmanAuto
-                     , mouthAuto
-                     ]
+myAuto = mconcat [ i' countAuto
+                 , i' pollAuto
+                 , i' greetAuto
+                 , i' karmaAuto
+                 , i' haskAuto
+                 , i' reconAuto
+                 , i' askAuto
+                 , i' censorAuto
+                 , i' pokeAuto
+                 , hangmanAuto
+                 , cryptogramAuto
+                 , mouthAuto
+                 ]
 
 i' :: Monad m => Interact' m -> Interact m
 i' a0 = proc msg@(InMessage _ _ o _) -> do

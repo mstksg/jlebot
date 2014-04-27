@@ -10,6 +10,7 @@ module Module (
   , module Module.Pokemon
   , module Module.Poll
   , module Module.Recon
+  , module Module.Cryptogram
   ) where
 
 import Module.Ask
@@ -23,3 +24,4 @@ import Module.Mouth
 import Module.Pokemon
 import Module.Poll
 import Module.Recon
+import Module.Cryptogram
