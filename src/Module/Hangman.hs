@@ -1,6 +1,5 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Module.Hangman (hangmanAuto) where
@@ -13,6 +12,7 @@ import Control.Category
 import Control.Monad
 import Data.Binary
 import Data.Char
+import Control.Monad.IO.Class
 import Data.List
 import Data.Maybe
 import Data.Time
@@ -25,9 +25,6 @@ import qualified Data.Map.Strict as M
 
 maxWrong :: Int
 maxWrong = 10
-
-poolSize :: Int
-poolSize = 500
 
 data HMCommand = HMGuess Char
                | HMSolve String
@@ -48,24 +45,18 @@ data Puzzle = Puzzle { _puzzleStr    :: String
                      , _puzzleStatus :: PuzzleStatus
                      } deriving (Show, Eq)
 
-toPhrase :: String -> Maybe String
-toPhrase = mfilter validPhrase . return . unwords . words . map toUpper . notComm
-  where
-    notComm ('@':_) = ""
-    notComm s       = s
+loadWords :: IO [String]
+loadWords = filter ((> 6) . length) . filter (all isAlpha) . lines <$> readFile "/usr/share/dict/american-english"
 
-hangmanAuto :: Monad m => Interact m
-hangmanAuto = proc im@(InMessage _ msg src _) -> do
-    pool <- scanE (concLim poolSize) [] -< toPhrase msg
+hangmanAuto :: MonadIO m => Interact m
+hangmanAuto = proc im@(InMessage _ _ src _) -> do
+    pool <- cacheAuto (liftIO loadWords)    -< ()
     o    <- multiAuto (const roomAuto)  -< (src, (im, pool))
     returnA -< OutMessages $ M.singleton src o
 
 roomAuto :: Monad m => Auto m (InMessage, [String]) [String]
-roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
-    phrasePool <- scanE (concLim poolSize) [] -< toPhrase msg
-    let totalPool | null phrasePool = globalPool
-                  | otherwise       = phrasePool
-
+roomAuto = proc (InMessage nick msg _ t, pool) -> do
+    let poolSize = length pool
     case words msg of
       "@hm":commstr -> do
         let comm = parseCommand commstr
@@ -75,18 +66,18 @@ roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
                  . (* 1000)
                  . utctDayTime
                  $ t
-            randPhrase | null totalPool = Nothing
-                       | otherwise      = Just . (totalPool !!) . fst
-                                          . randomR (0, length totalPool - 1)
-                                          $ gen
+            randPhrase | null pool = Nothing
+                       | otherwise = Just . map toUpper . (pool !!) . fst
+                                     . randomR (0, poolSize - 1)
+                                     $ gen
             obscPhr = map (uncover []) <$> randPhrase
             newPuzz = Puzzle <$> obscPhr <*> pure [] <*> pure PuzzleActive
         puzz <- switch (puzzleAuto Nothing) -< (comm, randPhrase)
         returnA -< case (puzz, comm) of
           (_, HMHelp)  -> return "It's simple. We solve the hangman.  @hm (c) to guess, @hm show to show status, @hm new for new game."
-          (_, HMNew)   | null totalPool -> return "Phrase dictionary empty.  Try again later."
-                       | otherwise      -> return "New game created!"
-                                        ++ maybeToList (displayPuzzle <$> newPuzz)
+          (_, HMNew)   | null pool -> return "Phrase dictionary empty.  Try again later."
+                       | otherwise -> return "New game created!"
+                                   ++ maybeToList (displayPuzzle <$> newPuzz)
           (Nothing, _) -> return "No game. @hm new for new game."
           (Just p , _) -> return (displayPuzzle p)
       _                 -> returnA -< mzero
@@ -162,14 +153,6 @@ uncover :: String -> Char -> Char
 uncover guesses c | c `elem` guesses = c
                   | not (isAlpha c)  = c
                   | otherwise        = '_'
-
-validPhrase :: String -> Bool
-validPhrase (words->str) = validLength (length str)
-  where
-    validLength x = x > 2 && x <= 6
-
-concLim :: Int -> [a] -> a -> [a]
-concLim n xs x = take n (x:xs)
 
 parseCommand :: [String] -> HMCommand
 parseCommand ((g:[]):[]) | isAlphaNum g = HMGuess . toUpper $ g

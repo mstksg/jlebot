@@ -8,6 +8,7 @@ module Main where
 -- import System.Directory
 import Backend.IRC
 import Backend.StdIn
+import Auto
 import Control.Arrow
 import Control.Monad hiding      (mapM_, forM_)
 import Control.Monad.IO.Class
@@ -32,19 +33,23 @@ main = do
       else stdinLoop "data/state_stdin" myAuto
 
 myAuto :: MonadIO m => Interact m
-myAuto = mconcat [ i' countAuto
+myAuto = mconcat [ saveIt "count"   $ i' countAuto
                  , i' pollAuto
-                 , i' greetAuto
-                 , i' karmaAuto
+                 , saveIt "greet"   $ i' greetAuto
+                 , saveIt "karma"   $ i' karmaAuto
                  , i' haskAuto
                  , i' reconAuto
                  , i' askAuto
                  , i' censorAuto
                  , i' pokeAuto
-                 , hangmanAuto
-                 , cryptogramAuto
+                 , saveIt "hangman" $ hangmanAuto
+                 , saveIt "crypto"  $ cryptogramAuto
                  , mouthAuto
                  ]
+
+saveIt :: MonadIO m => FilePath -> Auto m a b -> Auto m a b
+saveIt fp = savingAuto ("data/saving/" ++ fp ++ ".dat")
+
 
 i' :: Monad m => Interact' m -> Interact m
 i' a0 = proc msg@(InMessage _ _ o _) -> do

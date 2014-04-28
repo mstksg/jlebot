@@ -1,6 +1,6 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE ViewPatterns #-}
+-- {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -12,6 +12,7 @@ import Control.Arrow
 import Control.Monad
 import Control.Monad.Random
 import Data.Binary
+import Control.Monad.IO.Class
 import Data.Char
 import Data.List
 import Data.Map.Strict           (Map)
@@ -26,8 +27,8 @@ import Text.Parsec.String
 import Types
 import qualified Data.Map.Strict as M
 
-poolSize :: Int
-poolSize = 500
+-- poolSize :: Int
+-- poolSize = 500
 
 takebackLimit :: Int
 takebackLimit = 4
@@ -52,12 +53,6 @@ data PuzzleStatus = PuzzleActive
 
 instance Binary PuzzleStatus
 
-toPhrase :: String -> Maybe String
-toPhrase = mfilter validPhrase . return . unwords . words . map toUpper . notComm
-  where
-    notComm ('@':_) = ""
-    notComm s       = s
-
 parseCommand :: Parser [CGCommand]
 parseCommand = do
     cont <- optionMaybe (try commCont)
@@ -71,18 +66,28 @@ parseCommand = do
                       ]
     commSub   = CGSub <$> satisfy isAlpha <*> (spaces *> satisfy isAlpha)
 
+loadPhrases :: IO [String]
+loadPhrases = map unlines . splitOn "%" . lines <$> readFile "/usr/share/games/fortunes/fortunes"
+  where
+    splitOn str = go [] []
+      where
+        go prev curr [] = curr:prev
+        go prev curr (x:xs) | x == str  = go (curr:prev) [] xs
+                            | otherwise = go prev (curr ++ [x]) xs
 
-cryptogramAuto :: Monad m => Interact m
-cryptogramAuto = proc im@(InMessage _ msg src _) -> do
-    pool <- scanE (concLim poolSize) [] -< toPhrase msg
+
+cryptogramAuto :: MonadIO m => Interact m
+cryptogramAuto = proc im@(InMessage _ _ src _) -> do
+    pool <- cacheAuto (liftIO loadPhrases)    -< ()
+    -- pool <- scanE (concLim poolSize) [] -< toPhrase msg
     o    <- multiAuto (const roomAuto)  -< (src, (im, pool))
     returnA -< OutMessages $ M.singleton src o
 
+formatPhrase :: String -> String
+formatPhrase = unwords . words . unlines . lines . map toUpper
+
 roomAuto :: Monad m => Auto m (InMessage, [String]) [String]
-roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
-    phrasePool <- scanE (concLim poolSize) [] -< toPhrase msg
-    let totalPool | null phrasePool = globalPool
-                  | otherwise       = phrasePool
+roomAuto = proc (InMessage nick msg _ t, pool) ->
     case words msg of
       "@cg":commstr -> do
         let comm = parse parseCommand "" (unwords commstr)
@@ -93,11 +98,11 @@ roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
                  . utctDayTime
                  $ t
             randPhrase :: Maybe (String, Permutation)
-            randPhrase | null totalPool = Nothing
-                       | otherwise      = Just . flip evalRand gen $ do
-                                            phr <- getRandomR (0, length totalPool - 1)
-                                            perm <- randPerm
-                                            return (totalPool !! phr, perm)
+            randPhrase | null pool = Nothing
+                       | otherwise = Just . flip evalRand gen $ do
+                                       phr <- getRandomR (0, length pool - 1)
+                                       perm <- randPerm
+                                       return (formatPhrase (pool !! phr), perm)
             strout = (uncurry . flip) encodeString <$> randPhrase
             newPuzz = Puzzle <$> strout <*> pure mempty <*> pure PuzzleActive
         case comm of
@@ -105,9 +110,9 @@ roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
             puzz <- switch (puzzleAuto Nothing) -< (comm', randPhrase)
             returnA -< case (puzz, listToMaybe comm') of
               (_, Just CGHelp)  -> return "It's simple. We solve the cryptogram.  @cg new for a new game.  @cg a b to propose a substitution of a for b.  @cg !a to unpropose a's substitution. @cg show to show status."
-              (_, Just CGNew)   | null totalPool -> return "Phrase dictionary empty.  Try again later."
-                                | otherwise      -> return "New game created!"
-                                                 ++ maybeToList (displayPuzzle <$> newPuzz)
+              (_, Just CGNew)   | null pool -> return "Phrase dictionary empty.  Try again later."
+                                | otherwise -> return "New game created!"
+                                            ++ maybeToList (displayPuzzle <$> newPuzz)
               (Nothing, _) -> return "No game."
               (Just p , _) -> return (displayPuzzle p)
           _          -> returnA -< return "Invalid cryptogram commmand.  Try @cg help for more information."
@@ -127,18 +132,21 @@ displayPuzzle (Puzzle s p st) = displayPrefix st
     displayPrefix PuzzleActive      = "Active:"
     displayPrefix (PuzzleSolved _)  = "Solved!"
     displayPrefix (PuzzleFailure _) = "Failure!"
-    displayPerm = concatMap (\(k,v) -> [k,v])
+    displayPerm                     = concatMap (\(k,v) -> [k,v])
 
 puzzleAuto :: forall m. Monad m => Maybe (String, Permutation) -> Auto m ([CGCommand], Maybe (String, Permutation)) (Maybe Puzzle, Event (Auto m ([CGCommand], Maybe (String, Permutation)) (Maybe Puzzle)))
-puzzleAuto strperm = proc (comms, newphrasegen) -> do
+puzzleAuto strperm = proc (comms, newphraseperm) -> do
     let str0    = fst <$> strperm
         perm0   = snd <$> strperm
+
         newPuzz = case listToMaybe comms of
-                    Just CGNew -> event (switch (puzzleAuto newphrasegen))
+                    Just CGNew -> event (switch (puzzleAuto newphraseperm))
                     _          -> noEvent
+
         guesses :: [(Bool, (Char,Char))]
         guesses = concat . maybeToList $
                     (\perm -> mapMaybe (checkGuess perm) comms) <$> perm0
+
         cguesses, wguesses :: [(Char,Char)]
         (cguesses, wguesses) = (map snd *** map snd) . partition fst $ guesses
 
@@ -147,7 +155,8 @@ puzzleAuto strperm = proc (comms, newphrasegen) -> do
 
     let numWrong = length wrongs
         subStr   = encodeString subMap . (uncurry . flip) encodeString <$> strperm
-        solved   = isJust . mfilter id $ (==) <$> subStr <*> str0
+        solved   = isJust . mfilter id   $ (==) <$> subStr <*> str0
+
         failedE  = PuzzleFailure wrongs <$ guard (numWrong > takebackLimit)
         solvedE  = PuzzleSolved  wrongs <$ guard solved
 
@@ -156,12 +165,14 @@ puzzleAuto strperm = proc (comms, newphrasegen) -> do
     let strout = case status of
                    PuzzleActive -> subStr
                    _            -> str0
+
         puzz = Puzzle <$> strout <*> pure wrongs <*> pure status
 
     returnA -< (puzz, newPuzz)
   where
     checkGuess perm (CGSub x y) = event (M.lookup (toUpper y) perm == Just (toLower x), (toLower x,toUpper y))
     checkGuess _ _ = noEvent
+
 encodeString :: Permutation -> String -> String
 encodeString p = map (\c -> M.findWithDefault c c p)
 
@@ -172,14 +183,4 @@ randPerm = do
         shuffled' = map fst shuffled
         perm      = M.fromList $ zip ['A'..'Z'] shuffled'
     return perm
-
-concLim :: Int -> [a] -> a -> [a]
-concLim n xs x = take n (x:xs)
-
-validPhrase :: String -> Bool
-validPhrase (words->str) = validLength (length str) && notComm str
-  where
-    validLength = (> 4)
-    notComm (('@':_):_) = False
-    notComm _           = True
 

@@ -6,6 +6,7 @@ module Auto where
 -- much borrowed from http://lpaste.net/raw/101205
 
 import Control.Applicative
+import Control.Monad.IO.Class
 import Control.Arrow
 import Control.Category
 import Control.Exception
@@ -94,7 +95,12 @@ loadAutoFile fp a0 = do
     a <- case h of
            Right h' -> decodeAuto a0 <$> B.hGetContents h'
            Left _   -> return a0
-    try (evaluate a) :: IO (Either SomeException (Auto m a b))
+    e <- try (evaluate a) :: IO (Either SomeException (Auto m a b))
+
+    case e of
+      Left e' -> Prelude.print e'
+      Right _ -> return ()
+
     mapM_ hClose h
     return a
 
@@ -137,9 +143,30 @@ multiAuto f = go M.empty
                let m' = M.insert k a m
                return (out, go m')
 
--- savingAuto :: Monad m => FilePath -> Auto m a b -> Auto m a b
--- savingAuto fp = Auto (savingAuto <$> get) (put fp) $ \e -> do
---                   undefined
+-- stdinLoop :: MonadIO m => FilePath -> Interact m -> m ()
+-- stdinLoop fp a0 = do
+--     a  <- liftIO $ loadAutoFile fp a0
+--     a' <- loopAuto a
+--     liftIO $ writeAutoFile "data/state" a'
+
+
+savingAuto :: forall m a b. MonadIO m => FilePath -> Auto m a b -> Auto m a b
+savingAuto fp a = Auto
+                    (savingAuto <$> get <*> loadAuto a)
+                    (put fp >> saveAuto a) $ \dx -> do
+                      -- liftIO $ Prelude.putStrLn ("loading " ++ fp)
+                      loaded <- liftIO $ loadAutoFile fp a
+                      (out, a') <- stepAuto loaded dx
+                      return (out, savingAuto' a')
+  where
+    savingAuto' :: Auto m a b -> Auto m a b
+    savingAuto' a' = Auto
+                      (savingAuto' <$> loadAuto a')
+                      (saveAuto a') $ \dx -> do
+                        -- liftIO $ Prelude.putStrLn ("writing " ++ fp)
+                        (out, a'') <- stepAuto a' dx
+                        liftIO $ writeAutoFile fp a''
+                        return (out, savingAuto' a'')
 
 
 -- integral :: (Fractional a, Monad m, Serialize a) => a -> Wire m a a

@@ -5,6 +5,7 @@ module Module.Greet (greetAuto) where
 
 -- import Control.Monad.IO.Class
 -- import Data.Map.Strict        (Map)
+-- import Data.Time.Clock.POSIX
 -- import Event
 import Auto
 import Control.Applicative
@@ -15,7 +16,6 @@ import Data.List
 import Data.Maybe
 import Data.Monoid
 import Data.Time
-import Data.Time.Clock.POSIX
 import System.Random
 import Types
 import qualified Data.Map.Strict as M
