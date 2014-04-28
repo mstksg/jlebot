@@ -112,6 +112,9 @@ scanA f x' = Auto (fmap (scanA f) get) (put x') $ \dx ->
                let y = f x' dx
                in  return (y, scanA f y)
 
+mscanA :: (Monad m, Binary a, Monoid a) => Auto m a a
+mscanA = scanA (<>) mempty
+
 arrM :: Monad m => (a -> m b) -> Auto m a b
 arrM f = Auto (pure (arrM f)) (pure ()) $ \x -> do
            res <- f x
@@ -133,6 +136,11 @@ multiAuto f = go M.empty
                (out, a) <- stepAuto a' x
                let m' = M.insert k a m
                return (out, go m')
+
+-- savingAuto :: Monad m => FilePath -> Auto m a b -> Auto m a b
+-- savingAuto fp = Auto (savingAuto <$> get) (put fp) $ \e -> do
+--                   undefined
+
 
 -- integral :: (Fractional a, Monad m, Serialize a) => a -> Wire m a a
 -- -- integral x' =

@@ -2,6 +2,7 @@ module Event where
 
 import Auto
 import Data.Binary
+import Data.Monoid
 import Control.Applicative
 
 type Event = Maybe
@@ -38,6 +39,9 @@ scanE f x' = Auto (fmap (scanE f) get) (put x') $ \dx ->
                  Nothing -> return (x', scanE f x')
                  Just x  -> let y = f x' x
                             in  return (y, scanE f y)
+
+mscanE :: (Monad m, Binary a, Monoid a) => Auto m (Event a) a
+mscanE = scanE (<>) mempty
 
 switch :: Monad m => Auto m a (b, Event (Auto m a b)) -> Auto m a b
 switch a' = Auto (fmap switch (loadAuto a')) (saveAuto a') $ \dx -> do

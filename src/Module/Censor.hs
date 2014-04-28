@@ -43,6 +43,6 @@ reps = [ ("fuck"   , "intercourse")
        , ("slut"   , "friendly lady")
        , ("shekels", "dat paper")
        , ("wow"    , "WOW")
-       , ("hell"  , "florida")
+       -- , ("hell"  , "florida")
        , ("fack"   , "intarcourse")
        ]

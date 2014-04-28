@@ -53,7 +53,10 @@ data PuzzleStatus = PuzzleActive
 instance Binary PuzzleStatus
 
 toPhrase :: String -> Maybe String
-toPhrase = mfilter validPhrase . return . unwords . words . unwords . fmap (filter isAlpha) . words . map toUpper
+toPhrase = mfilter validPhrase . return . unwords . words . map toUpper . notComm
+  where
+    notComm ('@':_) = ""
+    notComm s       = s
 
 parseCommand :: Parser [CGCommand]
 parseCommand = do
@@ -136,11 +139,11 @@ puzzleAuto strperm = proc (comms, newphrasegen) -> do
         guesses :: [(Bool, (Char,Char))]
         guesses = concat . maybeToList $
                     (\perm -> mapMaybe (checkGuess perm) comms) <$> perm0
-        cguesses, wguesses :: [(Bool, (Char,Char))]
-        (cguesses, wguesses) = partition fst guesses
+        cguesses, wguesses :: [(Char,Char)]
+        (cguesses, wguesses) = (map snd *** map snd) . partition fst $ guesses
 
-    subMap <- scanA (<>) mempty -< M.fromList (map snd cguesses)
-    wrongs <- scanA (++) mempty -< map snd wguesses
+    subMap <- mscanA -< M.fromList cguesses
+    wrongs <- mscanA -< wguesses
 
     let numWrong = length wrongs
         subStr   = encodeString subMap . (uncurry . flip) encodeString <$> strperm

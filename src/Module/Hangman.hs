@@ -49,7 +49,10 @@ data Puzzle = Puzzle { _puzzleStr    :: String
                      } deriving (Show, Eq)
 
 toPhrase :: String -> Maybe String
-toPhrase = mfilter validPhrase . return . unwords . words . unwords . map (filter isAlphaNum) . words . map toUpper
+toPhrase = mfilter validPhrase . return . unwords . words . map toUpper . notComm
+  where
+    notComm ('@':_) = ""
+    notComm s       = s
 
 hangmanAuto :: Monad m => Interact m
 hangmanAuto = proc im@(InMessage _ msg src _) -> do
@@ -157,15 +160,13 @@ nub' _   = nub
 
 uncover :: String -> Char -> Char
 uncover guesses c | c `elem` guesses = c
-                  | c `elem` " "     = ' '
+                  | not (isAlpha c)  = c
                   | otherwise        = '_'
 
 validPhrase :: String -> Bool
-validPhrase (words->str) = validLength (length str) && notComm str
+validPhrase (words->str) = validLength (length str)
   where
     validLength x = x > 2 && x <= 6
-    notComm (('@':_):_) = False
-    notComm _           = True
 
 concLim :: Int -> [a] -> a -> [a]
 concLim n xs x = take n (x:xs)
