@@ -54,6 +54,13 @@ until = Auto (pure Event.until) (pure ()) $ \(x,e) ->
             Just _  -> return (Nothing, pure Nothing)
             Nothing -> return (Just x, Event.until)
 
+once :: Monad m => Auto m (Event a) (Event a)
+once = Auto (pure once) (pure ()) $ \e ->
+         case e of
+           Just _ -> return (e, pure e)
+           _      -> return (noEvent, once)
+
+
 (-->) :: Monad m => Auto m a (Maybe b) -> Auto m a (Maybe b) -> Auto m a (Maybe b)
 a0 --> a1 = Auto ((-->) <$> loadAuto a0 <*> loadAuto a1)
                  (saveAuto a0 >> saveAuto a1)

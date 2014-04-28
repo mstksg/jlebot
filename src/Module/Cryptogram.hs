@@ -6,7 +6,6 @@
 
 module Module.Cryptogram (cryptogramAuto) where
 
--- import Control.Monad.Fix
 import Auto
 import Control.Applicative
 import Control.Arrow
@@ -14,17 +13,14 @@ import Control.Monad
 import Control.Monad.Random
 import Data.Binary
 import Data.Char
-import Data.Digest.Pure.MD5
 import Data.List
 import Data.Map.Strict           (Map)
 import Data.Maybe
 import Data.Monoid
 import Data.Ord
 import Data.Time
-import Debug.Trace
 import Event
 import GHC.Generics
-import System.Random
 import Text.Parsec hiding        ((<|>))
 import Text.Parsec.String
 import Types
@@ -34,26 +30,24 @@ poolSize :: Int
 poolSize = 500
 
 takebackLimit :: Int
-takebackLimit = 10
+takebackLimit = 4
 
 type Permutation = Map Char Char
 
 data CGCommand = CGSub Char Char
-               | CGUnsub Char
                | CGNew
                | CGShow
                | CGHelp
                deriving (Show, Eq)
 
 data Puzzle = Puzzle { _puzzleStr :: String
-                     , _puzzleMap :: Permutation
-                     , _puzzleBTs :: Int
+                     , _puzzleWrongs :: [(Char,Char)]
                      , _puzzleStatus :: PuzzleStatus
                      } deriving (Show, Eq)
 
 data PuzzleStatus = PuzzleActive
-                  | PuzzleSolved Permutation
-                  | PuzzleFailure Permutation
+                  | PuzzleSolved [(Char,Char)]
+                  | PuzzleFailure [(Char,Char)]
                   deriving (Show, Eq, Generic)
 
 instance Binary PuzzleStatus
@@ -66,14 +60,12 @@ parseCommand = do
     cont <- optionMaybe (try commCont)
     case cont of
       Just c  -> return [c]
-      Nothing -> sepBy1 (commUnsub <|> commSub) spaces
+      Nothing -> sepBy1 commSub spaces
   where
-    -- anyComm  = commCont <|> commUnsub <|> commSub
     commCont = choice [ CGShow <$ string "show"
                       , CGHelp <$ string "help"
                       , CGNew  <$ string "new"
                       ]
-    commUnsub = CGUnsub <$> (char '!' *> satisfy isAlpha)
     commSub   = CGSub <$> satisfy isAlpha <*> (spaces *> satisfy isAlpha)
 
 
@@ -90,7 +82,7 @@ roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
                   | otherwise       = phrasePool
     case words msg of
       "@cg":commstr -> do
-        let comm = parse (parseCommand) "" (unwords commstr)
+        let comm = parse parseCommand "" (unwords commstr)
             gen  = mkStdGen
                  . (+ sum (map ord (nick ++ msg)))
                  . round
@@ -104,7 +96,7 @@ roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
                                             perm <- randPerm
                                             return (totalPool !! phr, perm)
             strout = (uncurry . flip) encodeString <$> randPhrase
-            newPuzz = Puzzle <$> strout <*> pure mempty <*> pure 0 <*> pure PuzzleActive
+            newPuzz = Puzzle <$> strout <*> pure mempty <*> pure PuzzleActive
         case comm of
           Right comm' -> do
             puzz <- switch (puzzleAuto Nothing) -< (comm', randPhrase)
@@ -119,63 +111,56 @@ roomAuto = proc (InMessage nick msg _ t, globalPool) -> do
       _                 -> returnA -< mzero
 
 displayPuzzle :: Puzzle -> String
-displayPuzzle (Puzzle s p i st) = displayPrefix st
-                               ++ " [" ++ s ++ "] "
-                               ++ displayPerm p' ++ " "
-                               ++ show i ++ "/" ++ show takebackLimit
+displayPuzzle (Puzzle s p st) = displayPrefix st
+                             ++ " [" ++ s ++ "] ("
+                             ++ displayPerm p'
+                             ++ replicate ((takebackLimit  - length p') * 2) '.'
+                             ++ ")"
   where
     p' = case st of
-           PuzzleSolved p'' -> p''
+           PuzzleSolved p''  -> p''
            PuzzleFailure p'' -> p''
-           _ -> p
+           _                 -> p
     displayPrefix PuzzleActive      = "Active:"
     displayPrefix (PuzzleSolved _)  = "Solved!"
     displayPrefix (PuzzleFailure _) = "Failure!"
-    displayPerm = concat . map (\(k,v) -> k:v:[]) . M.toList
+    displayPerm = concatMap (\(k,v) -> [k,v])
 
 puzzleAuto :: forall m. Monad m => Maybe (String, Permutation) -> Auto m ([CGCommand], Maybe (String, Permutation)) (Maybe Puzzle, Event (Auto m ([CGCommand], Maybe (String, Permutation)) (Maybe Puzzle)))
 puzzleAuto strperm = proc (comms, newphrasegen) -> do
-    let newPuzz = case listToMaybe comms of
+    let str0    = fst <$> strperm
+        perm0   = snd <$> strperm
+        newPuzz = case listToMaybe comms of
                     Just CGNew -> event (switch (puzzleAuto newphrasegen))
                     _          -> noEvent
-        mapEvts = mapM mapEvt comms
+        guesses :: [(Bool, (Char,Char))]
+        guesses = concat . maybeToList $
+                    (\perm -> mapMaybe (checkGuess perm) comms) <$> perm0
+        cguesses, wguesses :: [(Bool, (Char,Char))]
+        (cguesses, wguesses) = partition fst guesses
 
-    subHist <- accelAuto (scanE (flip (:)) []) -< mapEvts
-    subMap  <- accelAuto (scanE (uncurry . addMap) mempty) -< mapEvts
+    subMap <- scanA (<>) mempty -< M.fromList (map snd cguesses)
+    wrongs <- scanA (++) mempty -< map snd wguesses
 
-    let rptFst   = repeats . map fst $ subHist
-        rptSnd   = repeats . map snd $ subHist
-        numWrong = min (takebackLimit + 1) (rptFst + rptSnd)
-        origStr  = fst <$> strperm
+    let numWrong = length wrongs
         subStr   = encodeString subMap . (uncurry . flip) encodeString <$> strperm
-        solved   = subStr == origStr
-        failedE  = PuzzleFailure subMap <$ guard (numWrong > takebackLimit)
-        solvedE  = PuzzleSolved subMap  <$ guard solved
+        solved   = isJust . mfilter id $ (==) <$> subStr <*> str0
+        failedE  = PuzzleFailure wrongs <$ guard (numWrong > takebackLimit)
+        solvedE  = PuzzleSolved  wrongs <$ guard solved
 
-    -- create "first event"
-    status <- fromMaybe PuzzleActive <$> scanA (<|>) Nothing -< failedE <|> solvedE
+    status <- fromMaybe PuzzleActive <$> once -< failedE <|> solvedE
 
     let strout = case status of
                    PuzzleActive -> subStr
-                   _            -> origStr
-        puzz = Puzzle <$> strout <*> pure subMap <*> pure numWrong <*> pure status
+                   _            -> str0
+        puzz = Puzzle <$> strout <*> pure wrongs <*> pure status
 
     returnA -< (puzz, newPuzz)
   where
-    mapEvt comm = case comm of
-                    CGSub x y -> event (toLower x, Just (toUpper y))
-                    CGUnsub x -> event (toLower x, Nothing)
-                    _         -> noEvent
-
-repeats :: Ord a => [a] -> Int
-repeats = sum . map (pred . length) . group . sort
-
+    checkGuess perm (CGSub x y) = event (M.lookup (toUpper y) perm == Just (toLower x), (toLower x,toUpper y))
+    checkGuess _ _ = noEvent
 encodeString :: Permutation -> String -> String
 encodeString p = map (\c -> M.findWithDefault c c p)
-
-addMap :: Map Char Char -> Char -> Maybe Char -> Map Char Char
-addMap m x (Just y) = M.insert x y . M.filter (/= y) $ m
-addMap m x Nothing  = M.delete x m
 
 randPerm :: Rand StdGen Permutation
 randPerm = do
