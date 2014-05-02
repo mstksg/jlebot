@@ -4,7 +4,8 @@ module Module (
   , module Module.Censor
   , module Module.Greet
   , module Module.Hangman
-  , module Module.Haskell
+  -- , module Module.Haskell
+  , module Module.Lambdabot
   , module Module.Karma
   , module Module.Mouth
   , module Module.Pokemon
@@ -18,7 +19,8 @@ import Module.Censor
 import Module.Count
 import Module.Greet
 import Module.Hangman
-import Module.Haskell
+-- import Module.Haskell
+import Module.Lambdabot
 import Module.Karma
 import Module.Mouth
 import Module.Pokemon

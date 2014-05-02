@@ -1,6 +1,5 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE DeriveGeneric #-}
--- {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -22,7 +21,7 @@ import Data.Ord
 import Data.Time
 import Event
 import GHC.Generics
-import Text.Parsec hiding        ((<|>))
+import Text.Parsec hiding        ((<|>), many)
 import Text.Parsec.String
 import Types
 import qualified Data.Map.Strict as M
@@ -56,18 +55,24 @@ instance Binary PuzzleStatus
 parseCommand :: Parser [CGCommand]
 parseCommand = do
     cont <- optionMaybe (try commCont)
-    case cont of
+    res <- case cont of
       Just c  -> return [c]
-      Nothing -> sepBy1 commSub spaces
+      Nothing -> sepBy1 (try commSub) (try (many1 space))
+    many anyChar
+    return res
   where
     commCont = choice [ CGShow <$ string "show"
+                      , CGShow <$ string "show"
                       , CGHelp <$ string "help"
                       , CGNew  <$ string "new"
                       ]
-    commSub   = CGSub <$> satisfy isAlpha <*> (spaces *> satisfy isAlpha)
+    commSub   = CGSub <$> satisfy isAlpha <*> (many1 space *> satisfy isAlpha)
 
 loadPhrases :: IO [String]
-loadPhrases = map unlines . splitOn "%" . lines <$> readFile "/usr/share/games/fortunes/fortunes"
+loadPhrases = map unlines
+            . splitOn "%"
+            . lines
+          <$> readFile "/usr/share/games/fortunes/fortunes"
   where
     splitOn str = go [] []
       where
@@ -79,7 +84,6 @@ loadPhrases = map unlines . splitOn "%" . lines <$> readFile "/usr/share/games/f
 cryptogramAuto :: MonadIO m => Interact m
 cryptogramAuto = proc im@(InMessage _ _ src _) -> do
     pool <- cacheAuto (liftIO loadPhrases)    -< ()
-    -- pool <- scanE (concLim poolSize) [] -< toPhrase msg
     o    <- multiAuto (const roomAuto)  -< (src, (im, pool))
     returnA -< OutMessages $ M.singleton src o
 

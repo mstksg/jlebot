@@ -19,7 +19,7 @@ import qualified Data.Map.Strict       as M
 
 ircConf :: MVar (Interact IO) -> IrcConfig
 ircConf a = (mkDefaultConfig "irc.freenode.org" "jlebot")
-              { cChannels = ["#jlebot-test","#ucsd"]
+              { cChannels = ["#jlebot-test","#ucsd","#jlebot-abuss"]
               , cEvents   = [Privmsg (onMessage a)]
               }
 

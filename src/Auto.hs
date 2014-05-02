@@ -131,6 +131,17 @@ cacheAuto f = Auto (pure (cacheAuto f)) (pure ()) $ \_ -> do
                 res <- f
                 return (res, pure res)
 
+-- try to avoid!
+stateAutoM :: (Monad m, Binary s) => (a -> s -> m (b, s)) -> s -> Auto m a b
+stateAutoM f s0 = Auto (stateAutoM f <$> get) (put s0) $ \dx -> do
+                    (res, s') <- f dx s0
+                    return (res, stateAutoM f s')
+
+-- try to avoid!
+stateAuto :: (Monad m, Binary s) => (a -> s -> (b, s)) -> s -> Auto m a b
+stateAuto f = stateAutoM (\x -> return . f x)
+                   
+
 multiAuto :: forall m c a b. (Monad m, Ord c) => (c -> Auto m a b) -> Auto m (c, a) b
 multiAuto f = go M.empty
   where

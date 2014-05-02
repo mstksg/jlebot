@@ -46,7 +46,7 @@ data Puzzle = Puzzle { _puzzleStr    :: String
                      } deriving (Show, Eq)
 
 loadWords :: IO [String]
-loadWords = filter ((> 6) . length) . filter (all isAlpha) . lines <$> readFile "/usr/share/dict/american-english"
+loadWords = filter ((> 9) . length) . filter (all isAlpha) . lines <$> readFile "/usr/share/dict/american-english"
 
 hangmanAuto :: MonadIO m => Interact m
 hangmanAuto = proc im@(InMessage _ _ src _) -> do

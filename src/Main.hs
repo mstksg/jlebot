@@ -37,7 +37,8 @@ myAuto = mconcat [ saveIt "count"   $ i' countAuto
                  , i' pollAuto
                  , saveIt "greet"   $ i' greetAuto
                  , saveIt "karma"   $ i' karmaAuto
-                 , i' haskAuto
+                 -- , i' haskAuto
+                 , lambdabotAuto
                  , i' reconAuto
                  , i' askAuto
                  , i' censorAuto
@@ -49,7 +50,7 @@ myAuto = mconcat [ saveIt "count"   $ i' countAuto
 
 saveIt :: MonadIO m => FilePath -> Auto m a b -> Auto m a b
 saveIt fp = savingAuto ("data/saving/" ++ fp ++ ".dat")
-
+-- saveIt fp = id
 
 i' :: Monad m => Interact' m -> Interact m
 i' a0 = proc msg@(InMessage _ _ o _) -> do

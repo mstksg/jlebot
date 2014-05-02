@@ -1,9 +1,13 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Event where
 
+-- import Data.Traversable
 import Auto
+import Control.Applicative
 import Data.Binary
 import Data.Monoid
-import Control.Applicative
+import Prelude hiding      (sequence)
 
 type Event = Maybe
 
@@ -12,10 +16,6 @@ noEvent = Nothing
 
 event :: a -> Maybe a
 event = Just
-
-whenE :: Bool -> a -> Maybe a
-whenE False _ = Nothing
-whenE True a  = Just a
 
 
 hold' :: (Monad m, Binary a) => a -> Auto m (Event a) a
@@ -43,6 +43,13 @@ scanE f x' = Auto (fmap (scanE f) get) (put x') $ \dx ->
 mscanE :: (Monad m, Binary a, Monoid a) => Auto m (Event a) a
 mscanE = scanE (<>) mempty
 
+filterE :: Monad m => (a -> Bool) -> Auto m (Event a) (Event a)
+filterE p = Auto (pure (filterE p)) (put ()) $ \dx ->
+              case dx of
+                Just x  | p x -> return (Just x, filterE p)
+                _             -> return (Nothing, filterE p)
+
+
 switch :: Monad m => Auto m a (b, Event (Auto m a b)) -> Auto m a b
 switch a' = Auto (fmap switch (loadAuto a')) (saveAuto a') $ \dx -> do
               ((out,sw),a) <- stepAuto a' dx
@@ -63,6 +70,31 @@ once = Auto (pure once) (pure ()) $ \e ->
          case e of
            Just _ -> return (e, pure e)
            _      -> return (noEvent, once)
+
+now :: Monad m => Auto m a (Event a)
+now = Auto (pure now) (pure ()) $ \e -> return (event e, pure noEvent)
+
+whenE :: Monad m => (a -> Bool) -> Auto m a (Event a)
+whenE p = Auto (pure (whenE p)) (pure ()) $ \dx -> return $
+           if p dx
+             then (event dx, whenE p)
+             else (noEvent , whenE p)
+
+
+-- fmapAuto :: forall m f a b. (Monad m, Traversable f) => Auto m a b -> Auto m (f a) (f b)
+-- fmapAuto a0 = Auto (fmapAuto <$> loadAuto a0) (saveAuto a0) $ \dx -> do
+--                 -- resf :: f (a, Auto m a b)
+--                 resf <- sequence (stepAuto a0 <$> dx)
+--                 undefined
+
+discrete :: Monad m => Auto m a b -> Auto m (Event a) (Event b)
+discrete a0 = Auto (discrete <$> loadAuto a0) (saveAuto a0) $ \dx ->
+                case dx of
+                  Nothing ->
+                    return (noEvent, discrete a0)
+                  Just x  -> do
+                    (res, a) <- stepAuto a0 x
+                    return (event res, discrete a)
 
 
 (-->) :: Monad m => Auto m a (Maybe b) -> Auto m a (Maybe b) -> Auto m a (Maybe b)

@@ -30,6 +30,8 @@ ops expr = ops' { modules  = Just [ "Prelude"
                                   , "Control.Arrow"
                                   , "Data.Monoid"
                                   , "Data.Maybe"
+                                  , "Control.Monad.Trans.State.Strict"
+                                  -- , "qualified Data.Map.Strict as M"
                                   ]
                 , namedExtensions = [ "Arrows"
                                     , "ScopedTypeVariables"
@@ -70,7 +72,7 @@ haskInterp str = do
       res <- liftIO $ takeMVar wait
 
       return $ case res of
-                Just (Left e)  -> ["Error: " ++ (unwords . take 1 . words . show) e]
+                Just (Left e)  -> ["Error: " ++ (unwords . take 25 . words . show) e]
                 Just (Right (_,t,r)) -> case mode of
                                           IEval -> [r]
                                           IType -> [t]
