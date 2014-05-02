@@ -21,7 +21,7 @@ import Data.Ord
 import Data.Time
 import Event
 import GHC.Generics
-import Text.Parsec hiding        ((<|>), many)
+import Text.Parsec hiding        ((<|>), many, optional)
 import Text.Parsec.String
 import Types
 import qualified Data.Map.Strict as M
@@ -57,16 +57,26 @@ parseCommand = do
     cont <- optionMaybe (try commCont)
     res <- case cont of
       Just c  -> return [c]
-      Nothing -> sepBy1 (try commSub) (try (many1 space))
+      Nothing -> trySepBy1 commSub (many1 space)
     many anyChar
     return res
   where
     commCont = choice [ CGShow <$ string "show"
-                      , CGShow <$ string "show"
+                      , CGShow <$ string "display"
+                      , CGShow <$ string "status"
                       , CGHelp <$ string "help"
                       , CGNew  <$ string "new"
                       ]
     commSub   = CGSub <$> satisfy isAlpha <*> (many1 space *> satisfy isAlpha)
+
+trySepBy1 :: Parser a -> Parser b -> Parser [a]
+trySepBy1 p s = (:) <$> (p <* s) <*> go
+  where
+    go = do
+      pres <- optionMaybe (try p)
+      case pres of
+        Just res -> (res :) <$> (s *> go)
+        Nothing  -> return []
 
 loadPhrases :: IO [String]
 loadPhrases = map unlines
