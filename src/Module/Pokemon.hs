@@ -3,16 +3,16 @@
 
 module Module.Pokemon where
 
+-- import Data.Char
+-- import Data.Maybe
 import Auto
-import Data.List
-import Data.Char
 import Control.Applicative
 import Control.Arrow
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Random
 import Data.IntMap.Strict     (IntMap)
-import Data.Maybe
+import Data.List
 import Data.Monoid
 import Data.Pokemon
 import Data.Pokemon.Load
@@ -120,6 +120,7 @@ personalAuto = proc (InMessage nick msg _ t, ((specs,moves),pals)) -> do
                                          , _speciesDescription lu
                                          ]
                               Nothing -> [ "Pokemon " ++ show i ++ " not found." ]
+                       _ -> mzero
         pokes <- scanE (<>) mempty -< (:[]) <$> caught
         let checkmsg = case comm of
                          PCCheck -> [ nick ++ ": You have " ++ show numpokes ++ " pokemon:" ]
