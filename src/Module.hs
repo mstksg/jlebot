@@ -12,6 +12,7 @@ module Module (
   , module Module.Poll
   , module Module.Recon
   , module Module.Cryptogram
+  , module Module.Doge
   ) where
 
 import Module.Ask
@@ -27,3 +28,4 @@ import Module.Pokemon
 import Module.Poll
 import Module.Recon
 import Module.Cryptogram
+import Module.Doge

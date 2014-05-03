@@ -43,6 +43,7 @@ myAuto = mconcat [ saveIt "count"   $ i' countAuto
                  , i' askAuto
                  , i' censorAuto
                  , i' pokeAuto
+                 , i' dogeAuto
                  , saveIt "hangman" $ hangmanAuto
                  , saveIt "crypto"  $ cryptogramAuto
                  , mouthAuto

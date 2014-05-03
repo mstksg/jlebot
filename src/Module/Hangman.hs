@@ -155,7 +155,7 @@ uncover guesses c | c `elem` guesses = c
                   | otherwise        = '_'
 
 parseCommand :: [String] -> HMCommand
-parseCommand ((g:[]):[]) | isAlphaNum g = HMGuess . toUpper $ g
+parseCommand ((g:[]):[]) | isAlpha g = HMGuess . toUpper $ g
 parseCommand ("show":[]) = HMShow
 parseCommand ("help":[]) = HMHelp
 parseCommand ("new":[])  = HMNew
