@@ -40,40 +40,33 @@ markovAuto = proc (InMessage nick msg _ t) -> do
              . (* 1000)
              . utctDayTime
              $ t
-        makeMarkov' :: Maybe (String, Int)
+        makeMarkov' :: Event (String, Int)
         makeMarkov' = case words msg of
-                        "@markov":n:seed:[] -> event (n, hash seed)
-                        "@markov":n:_       -> event (n, tgen)
+                        "@markov":n:seed:[]      -> event (n, hash seed)
+                        "@markov":n:_            -> event (n, tgen)
                         "@impersonate":n:seed:[] -> event (n, hash seed)
                         "@impersonate":n:_       -> event (n, tgen)
-                        _                   -> noEvent
-        makeMarkov :: Maybe (String, StdGen)
+                        _                        -> noEvent
+        makeMarkov :: Event (String, StdGen)
         makeMarkov  = second mkStdGen <$> makeMarkov'
-        out :: Maybe String
-        out = (\(n, seed) -> let m = M.lookup n trainings
-                             in  case m of
-                                   Just m' -> let res = evalRand (genMarkov m') seed
-                                              in  if null res
-                                                    then "Not enough information on user " ++ n
-                                                    else "<" ++ n ++ "> " ++ res
-                                   Nothing -> "No memory of user " ++ n
+        out :: Event String
+        out = (\(n, seed) ->
+                  let m = M.lookup n trainings
+                  in  case m of
+                        Just m' -> let res = evalRand (genMarkov m') seed
+                                   in  if null res
+                                         then "Not enough information on user " ++ n
+                                         else "<" ++ n ++ "> " ++ res
+                        Nothing -> "No memory of user " ++ n
               ) <$> makeMarkov
 
     returnA -< maybeToList out
 
-trainingAuto :: Monad m
-             => Auto m String Training
-trainingAuto = scanA add M.empty . arr makeAdds
+trainingAuto :: Monad m => Auto m String Training
+trainingAuto = scanA (foldr add) M.empty . arr makeAdds
   where
-    add :: Training
-        -> [(String, Char)]
-        -> Training
-    add = foldr f
-      where
-        f :: (String, Char)
-          -> Training
-          -> Training
-        f (s, c) = M.insertWith (M.unionWith (+)) s (M.singleton c 1)
+    add :: (String, Char) -> Training -> Training
+    add (s, c) = M.insertWith (M.unionWith (+)) s (M.singleton c 1)
 
 makeAdds :: String -> [(String, Char)]
 makeAdds ('@':_)     = []
