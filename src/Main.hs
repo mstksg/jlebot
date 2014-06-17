@@ -5,16 +5,16 @@
 module Main where
 
 -- import Control.Applicative
+-- import Data.Traversable
 -- import System.Directory
+import Auto
 import Backend.IRC
 import Backend.StdIn
-import Auto
 import Control.Arrow
 import Control.Monad hiding      (mapM_, forM_)
 import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Monoid
-import Data.Traversable
 import Module
 import Prelude hiding            (mapM_, sequence, foldr, concat, elem)
 import System.Environment
@@ -44,9 +44,12 @@ myAuto = mconcat [ saveIt "count"   $ i' countAuto
                  , i' censorAuto
                  , i' pokeAuto
                  , i' dogeAuto
+                 , i' helpAuto
+                 , i' keywordAuto
                  , saveIt "hangman" $ hangmanAuto
                  , saveIt "crypto"  $ cryptogramAuto
                  , mouthAuto
+                 , saveIt "markov"  $ i' markovAuto
                  ]
 
 saveIt :: MonadIO m => FilePath -> Auto m a b -> Auto m a b

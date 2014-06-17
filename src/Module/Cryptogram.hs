@@ -6,12 +6,14 @@
 module Module.Cryptogram (cryptogramAuto) where
 
 import Auto
+import Control.Category
 import Control.Applicative
 import Control.Arrow
 import Control.Monad
 import Control.Monad.Random
 import Data.Binary
 import Control.Monad.IO.Class
+import Prelude hiding ((.), id)
 import Data.Char
 import Data.List
 import Data.Map.Strict           (Map)
@@ -25,9 +27,6 @@ import Text.Parsec hiding        ((<|>), many, optional)
 import Text.Parsec.String
 import Types
 import qualified Data.Map.Strict as M
-
--- poolSize :: Int
--- poolSize = 500
 
 takebackLimit :: Int
 takebackLimit = 4
@@ -70,12 +69,12 @@ parseCommand = do
     commSub   = CGSub <$> satisfy isAlpha <*> (many1 space *> satisfy isAlpha)
 
 trySepBy1 :: Parser a -> Parser b -> Parser [a]
-trySepBy1 p s = (:) <$> (p <* s) <*> go
+trySepBy1 p s = (:) <$> p <*> go
   where
     go = do
-      pres <- optionMaybe (try p)
+      pres <- optionMaybe (try (s *> p))
       case pres of
-        Just res -> (res :) <$> (s *> go)
+        Just res -> (res :) <$> go
         Nothing  -> return []
 
 loadPhrases :: IO [String]
@@ -165,7 +164,7 @@ puzzleAuto strperm = proc (comms, newphraseperm) -> do
         (cguesses, wguesses) = (map snd *** map snd) . partition fst $ guesses
 
     subMap <- mscanA -< M.fromList cguesses
-    wrongs <- mscanA -< wguesses
+    wrongs <- arr nub . mscanA -< wguesses
 
     let numWrong = length wrongs
         subStr   = encodeString subMap . (uncurry . flip) encodeString <$> strperm

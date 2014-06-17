@@ -29,13 +29,14 @@ executable jlebot
                      , network
                      , time
                      , directory
-                     , hint
+                     -- , hint
                      , random
-                     , mueval
+                     -- , mueval
                      , deepseq
                      , pureMD5
                      , text
                      , pokemon
                      , MonadRandom
+                     , monad-loops
   hs-source-dirs:      src
   default-language:    Haskell2010

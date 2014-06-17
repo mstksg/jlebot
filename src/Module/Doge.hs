@@ -28,30 +28,38 @@ dogeAuto = proc im -> do
     returnA -< dogeFunc im
 
 doge :: [String] -> InMessage -> [String]
-doge pool (InMessage _ b _ _) = case words b of
-                                  "@doge":rest -> let rest' = (map . map) toLower rest
-                                                      dig   = md5 (encode rest')
-                                                      gen   = mkStdGen . fromIntegral . fromMaybe 0 . listToMaybe . B.unpack . encode $ dig
-                                                  in  evalRand (randoge pool rest) gen
-                                  _            -> mzero
+doge pool (InMessage _ b _ t) =
+    case words b of
+      "@doge":rest -> let rest' = (map . map) toLower rest
+                          rest'' | null rest' = [show t]
+                                 | otherwise  = rest'
+                          dig   = md5 (encode rest'')
+                          gen   = mkStdGen    . fromIntegral
+                                . fromMaybe 0 . listToMaybe
+                                . B.unpack    . encode
+                                $ dig
+                      in  evalRand (randoge pool rest) gen
+      _            -> mzero
 
 randoge :: [String] -> [String] -> Rand StdGen [String]
 randoge pool wants = ((++ ["wow"]).) . zipWith (<>)
-           <$> replicateM 4 (selectRand prefs)
-           <*> fromPool
+                 <$> replicateM 3 (selectRand prefs)
+                 <*> fromPool
   where
-    prefs = map (++ " ") prefixes
-    fromPool = (wants ++) <$> replicateM 4 (selectRand pool)
+    prefs    = map (++ " ") prefixes
+    fromPool = (wants ++) <$> replicateM 3 (selectRand pool)
 
 prefixes :: [String]
 prefixes = [ "such"
            , "wow"
            , "much"
+           , "very"
            , "great"
            , "so"
            , "awesome"
            , "much"
            , "such"
+           , "very"
            ]
 
 selectRand :: RandomGen g => [a] -> Rand g a

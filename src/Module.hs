@@ -13,6 +13,9 @@ module Module (
   , module Module.Recon
   , module Module.Cryptogram
   , module Module.Doge
+  , module Module.Help
+  , module Module.Keyword
+  , module Module.Markov
   ) where
 
 import Module.Ask
@@ -29,3 +32,6 @@ import Module.Poll
 import Module.Recon
 import Module.Cryptogram
 import Module.Doge
+import Module.Help
+import Module.Keyword
+import Module.Markov

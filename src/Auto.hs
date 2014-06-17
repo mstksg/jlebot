@@ -140,7 +140,7 @@ stateAutoM f s0 = Auto (stateAutoM f <$> get) (put s0) $ \dx -> do
 -- try to avoid!
 stateAuto :: (Monad m, Binary s) => (a -> s -> (b, s)) -> s -> Auto m a b
 stateAuto f = stateAutoM (\x -> return . f x)
-                   
+
 
 multiAuto :: forall m c a b. (Monad m, Ord c) => (c -> Auto m a b) -> Auto m (c, a) b
 multiAuto f = go M.empty
@@ -148,11 +148,27 @@ multiAuto f = go M.empty
     go :: (Monad m, Ord c) => Map c (Auto m a b) -> Auto m (c, a) b
     go m = Auto
              (go <$> sequence (fmap loadAuto m))
-             (sequence_ (fmap saveAuto m)) $ \(k,x) -> do
+             (sequence_ (fmap saveAuto m))
+           $ \(k, x) -> do
                let a' = M.findWithDefault (f k) k m
                (out, a) <- stepAuto a' x
                let m' = M.insert k a m
                return (out, go m')
+
+gatherAuto :: forall m c a b. (Monad m, Ord c, Binary c, Binary b) => (c -> Auto m a b) -> Auto m (c, a) (Map c b)
+gatherAuto f = go M.empty M.empty
+  where
+    go :: Map c (Auto m a b) -> Map c b -> Auto m (c, a) (Map c b)
+    go ma mx = Auto
+                 (go <$> sequence (fmap loadAuto ma) <*> get)
+                 (sequence_ (fmap saveAuto ma) >> put mx)
+               $ \(k, x) -> do
+                   let a' = M.findWithDefault (f k) k ma
+                   (x', a) <- stepAuto a' x
+                   let ma' = M.insert k a  ma
+                       mx' = M.insert k x' mx
+                   return (mx', go ma' mx')
+
 
 -- stdinLoop :: MonadIO m => FilePath -> Interact m -> m ()
 -- stdinLoop fp a0 = do

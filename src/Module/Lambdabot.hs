@@ -7,8 +7,10 @@ getCommand :: String -> Maybe String
 getCommand str = case words str of
                    ">>":rest  -> Just (unwords (">":rest))
                    ":t":_     -> Just str
+                   "@src":_    -> Just str
                    "@pl":_    -> Just str
                    "@djinn":_ -> Just str
+                   "@oeis":_  -> Just str
                    _          -> Nothing
 
 
