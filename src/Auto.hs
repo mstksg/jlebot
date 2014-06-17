@@ -160,7 +160,8 @@ gatherAuto f = go M.empty M.empty
   where
     go :: Map c (Auto m a b) -> Map c b -> Auto m (c, a) (Map c b)
     go ma mx = Auto
-                 (go <$> sequence (fmap loadAuto ma) <*> get)
+                (go <$> pure M.empty <*> pure M.empty)
+                 -- (go <$> sequence (fmap loadAuto ma) <*> get)
                  (sequence_ (fmap saveAuto ma) >> put mx)
                $ \(k, x) -> do
                    let a' = M.findWithDefault (f k) k ma

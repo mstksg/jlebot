@@ -60,7 +60,6 @@ markovAuto = proc (InMessage nick msg _ t) -> do
               ) <$> makeMarkov
 
     returnA -< maybeToList out
-    -- returnA -< [evalRand (weightedRandom (M.fromList [("hello",1),("world",2)])) (mkStdGen tgen)]
 
 trainingAuto :: Monad m
              => Auto m String Training
@@ -80,6 +79,7 @@ makeAdds :: String -> [(String, Char)]
 makeAdds ('@':_)     = []
 makeAdds ('>':'>':_) = []
 makeAdds ('.':_)     = []
+makeAdds ('s':'/':_) = []
 makeAdds xs          = map pullLast
                      . transpose
                      . dropchain
@@ -107,18 +107,4 @@ genMarkov m = evalStateT (unfoldM go) ""
             c    -> do
               modify $ reverse . take memory . reverse . (++ [c])
               return (Just c)
-
--- -- does not work
--- weightedRandom :: RandomGen g => Map a Int -> Rand g a
--- weightedRandom opts = choice <$> getRandomR (0, optSum - 1)
---   where
---     optSum   = sum opts
---     choice i = fromJust . snd $ M.foldrWithKey f (i, Nothing) opts
---     f _ _ j@(_, Just _) = j
---     f k v (i, _)        = (i', nx)
---       where
---         i'   = i - v
---         nx | i <= 0    = Just k
---            | otherwise = Nothing
-
 
