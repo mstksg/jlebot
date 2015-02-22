@@ -99,7 +99,9 @@ displayPuzzle (Puzzle s m p) = displayPrefix p
     displayPrefix (PuzzleSolved _)  = "Solved!"
     displayPrefix (PuzzleFailure _) = "Failure!"
 
-puzzleAuto :: forall m. Monad m => Maybe String -> Auto m (HMCommand, Maybe String) (Maybe Puzzle, Event (Auto m (HMCommand, Maybe String) (Maybe Puzzle)))
+puzzleAuto :: forall m. Monad m
+           => Maybe String
+           -> Auto m (HMCommand, Maybe String) (Maybe Puzzle, Event (Auto m (HMCommand, Maybe String) (Maybe Puzzle)))
 puzzleAuto str0 = proc (comm, newphrase) -> do
     let newPuzz = case comm of
                     HMNew -> event (switch (puzzleAuto newphrase))

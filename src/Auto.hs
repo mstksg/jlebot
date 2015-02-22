@@ -10,7 +10,7 @@ import Control.Monad.IO.Class
 import Control.Arrow
 import Control.Category
 import Control.Exception
-import Control.Monad hiding      (mapM_, sequence_, sequence)
+import Control.Monad hiding      (mapM_, sequence_, sequence, mapM)
 import Control.Monad.Fix
 import Data.Binary
 import Data.Binary.Get
@@ -20,7 +20,7 @@ import Data.Foldable
 import Data.Map.Strict           (Map)
 import Data.Monoid
 import Data.Traversable
-import Prelude hiding            ((.), id, mapM_, sequence_, sequence)
+import Prelude hiding            ((.), id, mapM_, sequence_, sequence, mapM)
 import System.IO
 import qualified Data.Map.Strict as M
 
@@ -115,8 +115,8 @@ integral x' = Auto (fmap integral get) (put x') $ \dx ->
 
 scanA :: (Monad m, Binary b) => (b -> a -> b) -> b -> Auto m a b
 scanA f x' = Auto (fmap (scanA f) get) (put x') $ \dx ->
-               let y = f x' dx
-               in  return (y, scanA f y)
+               let x = f x' dx
+               in  return (x, scanA f x)
 
 mscanA :: (Monad m, Binary a, Monoid a) => Auto m a a
 mscanA = scanA (<>) mempty
@@ -147,8 +147,8 @@ multiAuto f = go M.empty
   where
     go :: (Monad m, Ord c) => Map c (Auto m a b) -> Auto m (c, a) b
     go m = Auto
-             (go <$> sequence (fmap loadAuto m))
-             (sequence_ (fmap saveAuto m))
+             (go <$> mapM loadAuto m)
+             (mapM_ saveAuto m)
            $ \(k, x) -> do
                let a' = M.findWithDefault (f k) k m
                (out, a) <- stepAuto a' x
@@ -160,13 +160,13 @@ gatherAuto f = go M.empty M.empty
   where
     go :: Map c (Auto m a b) -> Map c b -> Auto m (c, a) (Map c b)
     go ma mx = Auto
-                (go <$> pure M.empty <*> pure M.empty)
-                 -- (go <$> sequence (fmap loadAuto ma) <*> get)
-                 (sequence_ (fmap saveAuto ma) >> put mx)
+                 (go <$> pure M.empty <*> pure M.empty)
+                 -- (go <$> mapM loadAuto ma <*> get)
+                 (mapM_ saveAuto ma >> put mx)
                $ \(k, x) -> do
-                   let a' = M.findWithDefault (f k) k ma
-                   (x', a) <- stepAuto a' x
-                   let ma' = M.insert k a  ma
+                   let a   = M.findWithDefault (f k) k ma
+                   (x', a') <- stepAuto a x
+                   let ma' = M.insert k a'  ma
                        mx' = M.insert k x' mx
                    return (mx', go ma' mx')
 
@@ -182,7 +182,7 @@ savingAuto :: forall m a b. MonadIO m => FilePath -> Auto m a b -> Auto m a b
 savingAuto fp a = Auto
                     (savingAuto <$> get <*> loadAuto a)
                     (put fp >> saveAuto a) $ \dx -> do
-                      -- liftIO $ Prelude.putStrLn ("loading " ++ fp)
+                      liftIO $ Prelude.putStrLn ("loading " ++ fp)
                       loaded <- liftIO $ loadAutoFile fp a
                       (out, a') <- stepAuto loaded dx
                       return (out, savingAuto' a')
@@ -191,7 +191,7 @@ savingAuto fp a = Auto
     savingAuto' a' = Auto
                       (savingAuto' <$> loadAuto a')
                       (saveAuto a') $ \dx -> do
-                        -- liftIO $ Prelude.putStrLn ("writing " ++ fp)
+                        liftIO $ Prelude.putStrLn ("writing " ++ fp)
                         (out, a'') <- stepAuto a' dx
                         liftIO $ writeAutoFile fp a''
                         return (out, savingAuto' a'')

@@ -25,7 +25,13 @@ import Types
 import qualified Data.Map.Strict as M
 
 memory :: Int
-memory = 3
+memory = 5
+
+minLength :: Int
+minLength = 20
+
+maxTries :: Int
+maxTries = 50
 
 type Training = Map String (Map Char Int)
 
@@ -35,29 +41,33 @@ hash = sum . map ord
 markovAuto :: Monad m => Interact' m
 markovAuto = proc (InMessage nick msg _ t) -> do
     trainings <- gatherAuto (const trainingAuto) -< (nick, msg)
-    let tgen = (+ hash (nick ++ msg))
+    let -- random seed based on time
+        tgen :: Int
+        tgen = (+ hash (nick ++ msg))
              . round
              . (* 1000)
              . utctDayTime
              $ t
         makeMarkov' :: Event (String, Int)
         makeMarkov' = case words msg of
-                        "@markov":n:seed:[]      -> event (n, hash seed)
-                        "@markov":n:_            -> event (n, tgen)
-                        "@impersonate":n:seed:[] -> event (n, hash seed)
-                        "@impersonate":n:_       -> event (n, tgen)
-                        _                        -> noEvent
+                        "@markov":n:seed:_      -> event (n, hash seed)
+                        "@markov":n:_           -> event (n, tgen)
+                        "@impersonate":n:seed:_ -> event (n, hash seed)
+                        "@impersonate":n:_      -> event (n, tgen)
+                        _                       -> noEvent
         makeMarkov :: Event (String, StdGen)
         makeMarkov  = second mkStdGen <$> makeMarkov'
         out :: Event String
         out = (\(n, seed) ->
                   let m = M.lookup n trainings
                   in  case m of
-                        Just m' -> let res = evalRand (genMarkov m') seed
-                                   in  if null res
-                                         then "Not enough information on user " ++ n
-                                         else "<" ++ n ++ "> " ++ res
-                        Nothing -> "No memory of user " ++ n
+                        Just m' ->
+                          let res = evalRand (genMarkovN minLength m') seed
+                          in  if null res
+                                then "Not enough information on user " ++ n
+                                else "<" ++ n ++ "> " ++ res
+                        Nothing ->
+                          "No memory of user " ++ n
               ) <$> makeMarkov
 
     returnA -< maybeToList out
@@ -82,6 +92,16 @@ makeAdds xs          = map pullLast
       pullLast []     = ([],'\0')
       pullLast (y:ys) = (reverse ys, y)
       dropchain ys    = map (`drop` ys) [0..memory]
+
+genMarkovN :: Int -> Training -> Rand StdGen String
+genMarkovN i m = go maxTries
+  where
+    go 0 = genMarkov m
+    go n = do
+      mkv <- genMarkov m
+      if length mkv >= i
+        then return mkv
+        else go (n-1)
 
 genMarkov :: Training -> Rand StdGen String
 genMarkov m = evalStateT (unfoldM go) ""
